@@ -189,6 +189,8 @@
 
       <!-- ================= PLAN ================= -->
       <section class="view" data-view="plan" aria-labelledby="viewTitle" hidden>
+        <article class="card share" id="shareCard" aria-labelledby="shareTitle" hidden></article>
+
         <article class="card">
           <header class="card__head"><h2>Monthly plan</h2></header>
           <div class="field">
@@ -279,7 +281,7 @@
           <input id="importFile" type="file" accept="application/json,.json" hidden>
         </article>
 
-        <p class="footnote">Pocket 2.2 · Works offline</p>
+        <p class="footnote">Pocket 2.3 · Works offline</p>
       </section>
     </main>
 
@@ -431,6 +433,34 @@
     </div>
   </form>
 
+  <form class="sheet" id="authSheet" role="dialog" aria-modal="true" aria-labelledby="authTitle" tabindex="-1" novalidate hidden>
+    <div class="sheet__top" data-drag-handle>
+      <div class="sheet__grab" aria-hidden="true"></div>
+      <div class="sheet__head">
+        <button type="button" class="text-btn" data-close>Cancel</button>
+        <h2 id="authTitle">Create account</h2>
+        <span></span>
+      </div>
+    </div>
+    <p class="pay__sub" id="authSub">So you and your family can share one budget.</p>
+    <div class="field" id="authNameField">
+      <label class="field__label" for="authName">Your first name</label>
+      <input class="input" id="authName" type="text" maxlength="40" autocomplete="given-name" placeholder="Shown to your family">
+    </div>
+    <div class="field">
+      <label class="field__label" for="authEmail">Email</label>
+      <input class="input" id="authEmail" type="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" required>
+    </div>
+    <div class="field">
+      <label class="field__label" for="authPassword">Password</label>
+      <input class="input" id="authPassword" type="password" minlength="8" autocomplete="new-password" required>
+      <p class="field__hint" id="authPwHint">At least 8 characters.</p>
+    </div>
+    <p class="form-error" id="authError" role="alert" hidden></p>
+    <button class="btn btn--primary btn--block btn--lg" type="submit" id="authSubmit">Create account</button>
+    <button class="text-btn auth-switch" type="button" id="authSwitch">Already have an account? Sign in</button>
+  </form>
+
   <!-- ================= ONBOARDING ================= -->
   <div class="onboarding" id="onboarding" role="dialog" aria-modal="true" aria-labelledby="obTitle" hidden>
     <form class="onboarding__inner" id="obForm" novalidate>
@@ -480,6 +510,10 @@
       </div>
       <button class="btn btn--primary btn--block btn--lg" type="submit">Start tracking</button>
       <button class="text-btn onboarding__skip" id="obSkip" type="button">Skip for now</button>
+      <div class="onboarding__join" id="obJoin" hidden>
+        <p>Joining your family's budget?</p>
+        <button class="btn btn--soft btn--block" id="obJoinBtn" type="button">Sign in and join</button>
+      </div>
     </form>
   </div>
 

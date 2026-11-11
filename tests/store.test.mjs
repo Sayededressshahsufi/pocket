@@ -127,7 +127,7 @@ describe("createStore", () => {
     const store = createStore(memoryStorage());
     store.update((s) => { s.items.push({ id: "a", amount: 500, category: "fun", note: "", date: "2025-01-01", createdAt: 1 }); });
     const copy = createStore(memoryStorage());
-    copy.replace(JSON.parse(store.serialize()));
+    copy.replace(JSON.parse(store.serialize()), { stamp: false });
     assert.deepEqual(copy.state, store.state);
   });
 });

@@ -1,6 +1,11 @@
 /**
  * Persistence layer. All reads go through `normalize`, so anything loaded from
- * storage or an imported backup is validated before the UI ever sees it.
+ * storage, an imported backup, or the sync server is validated before the UI
+ * ever sees it.
+ *
+ * Sync metadata: every record carries `updatedAt`, deletions are remembered in
+ * `deleted` (id -> time) and shared settings carry `settingsAt`. The store
+ * stamps these automatically on local edits, so app code never has to.
  */
 import { isCategory, LEGACY_NAMES } from "./categories.js";
 import { isISODate } from "./dates.js";
@@ -8,7 +13,9 @@ import { isISODate } from "./dates.js";
 export const STORAGE_KEY = "pocket:v2";
 export const LEGACY_KEY = "myMoneyApp.v1";
 export const SCHEMA_VERSION = 2;
+export const COLLECTIONS = ["items", "paychecks", "recurring", "balances"];
 const THEMES = ["system", "light", "dark"];
+const TOMBSTONE_TTL = 400 * 864e5; // forget deletions after ~13 months
 
 export const uid = () =>
   globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -24,17 +31,23 @@ export function defaultState() {
     version: SCHEMA_VERSION,
     onboarded: false,
     settings: { currency: "USD", income: 0, goal: 0, theme: "system", pay: defaultPay() },
+    settingsAt: 0,
     limits: {},
     recurring: [],
     items: [],
     paychecks: [],
     balances: [],
+    deleted: {},
   };
 }
 
 const cents = (v) => {
   const n = Math.round(Number(v));
   return Number.isFinite(n) && n > 0 ? Math.min(n, 1e11) : 0;
+};
+const time = (v) => {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n > 0 ? n : 0;
 };
 const categoryId = (v) => (isCategory(v) ? v : LEGACY_NAMES[v] ?? "other");
 const text = (v, max) => String(v ?? "").trim().slice(0, max);
@@ -44,13 +57,15 @@ function normalizeItem(raw) {
   if (!raw || !isISODate(raw.date)) return null;
   const amount = cents(raw.amount);
   if (!amount) return null;
+  const createdAt = time(raw.createdAt) || Date.now();
   return {
     id: String(raw.id ?? uid()),
     amount,
     category: categoryId(raw.category),
     note: text(raw.note, 80),
     date: raw.date,
-    createdAt: Number(raw.createdAt) || Date.now(),
+    createdAt,
+    updatedAt: time(raw.updatedAt) || createdAt,
   };
 }
 
@@ -69,12 +84,14 @@ function normalizePaycheck(raw) {
   if (!raw || !isISODate(raw.date)) return null;
   const amount = cents(raw.amount);
   if (!amount) return null;
+  const createdAt = time(raw.createdAt) || Date.now();
   return {
     id: String(raw.id ?? uid()),
     amount,
     note: text(raw.note, 80),
     date: raw.date,
-    createdAt: Number(raw.createdAt) || Date.now(),
+    createdAt,
+    updatedAt: time(raw.updatedAt) || createdAt,
   };
 }
 
@@ -83,7 +100,8 @@ function normalizeBalance(raw) {
   if (!raw || !isISODate(raw.date)) return null;
   const amount = Math.round(Number(raw.amount));
   if (!Number.isFinite(amount) || Math.abs(amount) > 1e11) return null;
-  return { id: String(raw.id ?? uid()), amount, date: raw.date, at: Number(raw.at) || Date.now() };
+  const at = time(raw.at) || Date.now();
+  return { id: String(raw.id ?? uid()), amount, date: raw.date, at, updatedAt: time(raw.updatedAt) || at };
 }
 
 /** Actual amounts for variable bills, keyed by "YYYY-MM". */
@@ -108,6 +126,7 @@ function normalizeBill(raw) {
     day: day(raw.day),
     variable: Boolean(raw.variable),
     actuals: normalizeActuals(raw.actuals),
+    updatedAt: time(raw.updatedAt),
   };
 }
 
@@ -116,6 +135,16 @@ function normalizeLimits(raw) {
   for (const [k, v] of Object.entries(raw ?? {})) {
     const c = cents(v);
     if (c && isCategory(k)) out[k] = c;
+  }
+  return out;
+}
+
+function normalizeDeleted(raw) {
+  const out = {};
+  const cutoff = Date.now() - TOMBSTONE_TTL;
+  for (const [id, ts] of Object.entries(raw ?? {})) {
+    const t = time(ts);
+    if (t && t > cutoff) out[String(id).slice(0, 64)] = t;
   }
   return out;
 }
@@ -155,12 +184,37 @@ export function normalize(raw) {
       theme: THEMES.includes(s.theme) ? s.theme : "system",
       pay: normalizePay(s.pay),
     },
+    settingsAt: time(raw.settingsAt),
     limits: normalizeLimits(raw.limits),
     recurring: Array.isArray(raw.recurring) ? raw.recurring.map(normalizeBill).filter(Boolean) : [],
     items: Array.isArray(raw.items) ? raw.items.map(normalizeItem).filter(Boolean) : [],
     paychecks: Array.isArray(raw.paychecks) ? raw.paychecks.map(normalizePaycheck).filter(Boolean) : [],
     balances: Array.isArray(raw.balances) ? raw.balances.map(normalizeBalance).filter(Boolean).slice(-300) : [],
+    deleted: normalizeDeleted(raw.deleted),
   };
+}
+
+/** Theme is a per-device preference, so it never counts as a shared change. */
+const sharedSettings = (s) => JSON.stringify([s.onboarded, { ...s.settings, theme: null }, s.limits]);
+const withoutStamp = (r) => JSON.stringify({ ...r, updatedAt: 0 });
+
+/** Stamp `updatedAt`, tombstones and `settingsAt` for whatever changed. */
+export function stampChanges(prev, next, now = Date.now()) {
+  next.deleted = { ...next.deleted };
+  for (const key of COLLECTIONS) {
+    const before = new Map(prev[key].map((r) => [r.id, withoutStamp(r)]));
+    const kept = new Set();
+    for (const r of next[key]) {
+      kept.add(r.id);
+      if (before.get(r.id) !== withoutStamp(r)) {
+        r.updatedAt = now;
+        delete next.deleted[r.id]; // re-added (e.g. undo) beats an earlier delete
+      }
+    }
+    for (const id of before.keys()) if (!kept.has(id)) next.deleted[id] = now;
+  }
+  if (sharedSettings(prev) !== sharedSettings(next)) next.settingsAt = now;
+  return next;
 }
 
 export function createStore(storage = globalThis.localStorage) {
@@ -179,15 +233,22 @@ export function createStore(storage = globalThis.localStorage) {
     return defaultState();
   }
 
-  function commit(next) {
-    state = normalize(next);
+  /**
+   * @param {object} next
+   * @param {{stamp?: boolean, source?: "local"|"remote"|"reset"}} meta
+   *   `stamp: false` is for data that already carries its own sync metadata
+   *   (merges from the server) so it isn't re-marked as a fresh local edit.
+   */
+  function commit(next, { stamp = true, source = "local" } = {}) {
+    const normalized = normalize(next);
+    state = stamp ? stampChanges(state, normalized) : normalized;
     let saved = true;
     try {
       storage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
       saved = false; // quota exceeded or private mode
     }
-    listeners.forEach((fn) => fn(state));
+    listeners.forEach((fn) => fn(state, { source }));
     return saved;
   }
 
@@ -205,8 +266,9 @@ export function createStore(storage = globalThis.localStorage) {
       mutator(draft);
       return commit(draft);
     },
-    replace: (next) => commit(next),
-    reset: () => commit(defaultState()),
+    replace: (next, meta) => commit(next, meta),
+    /** Local wipe. Not stamped, so it can never delete a shared budget. */
+    reset: () => commit(defaultState(), { stamp: false, source: "reset" }),
     serialize: () =>
       JSON.stringify({ app: "pocket", exportedAt: new Date().toISOString(), ...state }, null, 2),
   };

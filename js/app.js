@@ -16,6 +16,7 @@ import {
 } from "./dates.js";
 import { applyKey, centsToInput, createMoney, CURRENCIES, currencyName, toCents } from "./money.js";
 import { createStore, uid } from "./store.js";
+import { createSync, friendlyError } from "./sync.js";
 import {
   $, $$, createSheetController, createToast, enableDragToDismiss, h, haptic, icon, pathIcon, shake,
 } from "./ui.js";
@@ -27,6 +28,10 @@ const store = createStore();
 const toast = createToast($("#toast"));
 const sheets = createSheetController($("#scrim"));
 const DECIMAL = (1.1).toLocaleString().charAt(1);
+const sync = createSync(store, {
+  onChange: () => { if (ui.view === "plan") renderShareCard(); },
+  onRemoteEdit: (who) => toast(`${who} updated the budget`),
+});
 
 const ui = { view: "home", ym: currentYM(), query: "", filter: null };
 let money = createMoney(store.state.settings.currency);
@@ -400,7 +405,194 @@ function setMoneyInput(input, cents) {
   if (document.activeElement !== input) input.value = centsToInput(cents);
 }
 
+// ---------------------------------------------------------------------------
+// Sharing (Plan card)
+// ---------------------------------------------------------------------------
+const APP_URL = `${location.origin}${location.pathname.replace(/index\.html$/, "")}`;
+
+function syncStatus(i) {
+  if (i.status === "synced") {
+    const secs = Math.round((Date.now() - i.lastSynced) / 1000);
+    return { tone: "good", text: secs < 60 ? "Synced just now" : `Synced ${Math.round(secs / 60)} min ago` };
+  }
+  if (i.status === "syncing" || i.status === "starting") return { tone: "busy", text: "Syncing…" };
+  if (i.status === "offline") return { tone: "warn", text: "Offline · will sync" };
+  if (i.status === "error") return { tone: "bad", text: "Sync problem" };
+  return null;
+}
+
+/** Run an async action with a busy button and a friendly error toast. */
+async function withBusy(btn, fn) {
+  btn?.classList.add("is-busy");
+  try {
+    await fn();
+  } catch (err) {
+    toast(friendlyError(err), { duration: 4500 });
+  } finally {
+    btn?.classList.remove("is-busy");
+  }
+}
+
+async function shareInvite(code) {
+  const text = `Join our Pocket budget so we both see the same numbers:\n1. Open ${APP_URL}\n2. Go to Plan → Share with family\n3. Create an account and enter code ${code}`;
+  try {
+    if (navigator.share) return await navigator.share({ title: "Join our Pocket budget", text });
+  } catch (err) {
+    if (err?.name === "AbortError") return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("Invite copied. Paste it in a text to your family.");
+  } catch {
+    toast(`Invite code: ${code}`, { duration: 8000 });
+  }
+}
+
+function renderShareCard() {
+  const card = $("#shareCard");
+  const i = sync.info;
+  card.hidden = !i.enabled;
+  if (!i.enabled) return;
+
+  // Preserve a half-typed invite code across re-renders.
+  const typed = $("#joinCode")?.value ?? "";
+  const typing = document.activeElement?.id === "joinCode";
+
+  const status = i.household ? syncStatus(i) : null;
+  const head = h("header", { class: "card__head" },
+    h("h2", { id: "shareTitle" }, "Share with family"),
+    status && h("span", { class: "share__status", "data-tone": status.tone, role: "status" }, status.text));
+  const intro = (t) => h("p", { class: "share__intro" }, t);
+  const links = (...btns) => h("div", { class: "share__links" }, ...btns);
+  const link = (label, onclick, muted) => h("button", { class: `text-btn${muted ? " text-btn--muted" : ""}`, type: "button", onclick }, label);
+
+  let body;
+  if (!i.ready && i.status === "starting") {
+    body = [intro("Connecting…")];
+  } else if (!i.user) {
+    body = [
+      intro("Share one budget with your family. Anything either of you logs shows up on both phones within seconds."),
+      h("button", { class: "btn btn--primary btn--block", type: "button", onclick: () => openAuth("signup") }, "Create account"),
+      links(link("I already have an account", () => openAuth("signin"))),
+    ];
+  } else if (!i.household) {
+    const input = h("input", {
+      class: "input num", id: "joinCode", type: "text", maxlength: "12", autocomplete: "off",
+      autocapitalize: "characters", spellcheck: "false", placeholder: "Invite code", "aria-label": "Invite code",
+    });
+    input.value = typed;
+    const joinBtn = h("button", { class: "btn btn--soft", type: "button" }, "Join");
+    joinBtn.addEventListener("click", () => withBusy(joinBtn, async () => {
+      if (input.value.replace(/[^a-z0-9]/gi, "").length < 6) { shake(input); input.focus(); return; }
+      await sync.joinHousehold(input.value);
+      toast("You're in. This phone now shares the budget.");
+    }));
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") joinBtn.click(); });
+    const startBtn = h("button", { class: "btn btn--primary btn--block", type: "button" }, "Start sharing this budget");
+    startBtn.addEventListener("click", () => withBusy(startBtn, async () => {
+      await sync.createHousehold("Our budget");
+      toast("Shared budget created. Send the invite code to your family.", { duration: 4000 });
+    }));
+    body = [
+      intro(`Signed in as ${i.user.email}.`),
+      startBtn,
+      h("p", { class: "share__or" }, "or join your family with their invite code"),
+      h("div", { class: "join-row" }, input, joinBtn),
+      links(link("Sign out", () => withBusy(null, sync.signOut), true)),
+    ];
+  } else {
+    const code = i.household.invite_code;
+    body = [
+      h("div", { class: "members", "aria-label": "People sharing this budget" },
+        ...i.members.map((m) => {
+          const name = m.display_name || "Member";
+          return h("span", { class: "member" },
+            h("span", { class: "member__avatar", "aria-hidden": "true" }, name.charAt(0).toUpperCase()),
+            name, m.user_id === i.user.id && h("small", {}, "(you)"));
+        })),
+      h("div", { class: "invite" },
+        h("span", { class: "invite__label" }, "Invite code"),
+        h("span", { class: "invite__code" }, code),
+        h("button", { class: "btn btn--soft btn--block", type: "button", onclick: () => shareInvite(code) }, "Send invite")),
+      i.status === "error" && intro(i.error),
+      links(
+        link("Sync now", () => withBusy(null, sync.syncNow)),
+        link("Leave", () => {
+          if (!confirm("Stop sharing on this phone? Your data stays on this phone, but new changes won't sync.")) return;
+          withBusy(null, async () => { await sync.leaveHousehold(); toast("You left the shared budget"); });
+        }, true),
+        link("Sign out", () => withBusy(null, sync.signOut), true)),
+    ];
+  }
+  card.replaceChildren(...[head, ...body].filter(Boolean));
+  if (typing) $("#joinCode")?.focus();
+}
+
+// ---------------------------------------------------------------------------
+// Account sheet
+// ---------------------------------------------------------------------------
+const authSheet = $("#authSheet");
+let authMode = "signup";
+let afterAuth = null;
+
+function paintAuth() {
+  const up = authMode === "signup";
+  $("#authTitle").textContent = up ? "Create account" : "Sign in";
+  $("#authSub").textContent = up
+    ? "So you and your family can share one budget."
+    : "Welcome back. Your shared budget will sync to this phone.";
+  $("#authNameField").hidden = !up;
+  $("#authPassword").autocomplete = up ? "new-password" : "current-password";
+  $("#authPwHint").hidden = !up;
+  $("#authSubmit").textContent = up ? "Create account" : "Sign in";
+  $("#authSwitch").textContent = up ? "Already have an account? Sign in" : "New here? Create an account";
+  $("#authError").hidden = true;
+}
+
+function openAuth(mode = "signup", then = null) {
+  authMode = mode;
+  afterAuth = then;
+  $("#authPassword").value = "";
+  for (const el of $$("[aria-invalid]", authSheet)) el.removeAttribute("aria-invalid");
+  paintAuth();
+  sheets.open(authSheet, { initialFocus: mode === "signup" ? $("#authName") : $("#authEmail") });
+}
+
+async function submitAuth() {
+  const up = authMode === "signup";
+  const name = $("#authName").value.trim();
+  const email = $("#authEmail").value.trim();
+  const password = $("#authPassword").value;
+  const invalid = [
+    up && !name && $("#authName"),
+    !/^\S+@\S+\.\S+$/.test(email) && $("#authEmail"),
+    password.length < 8 && $("#authPassword"),
+  ].filter(Boolean);
+  for (const el of $$("[aria-invalid]", authSheet)) el.removeAttribute("aria-invalid");
+  if (invalid.length) {
+    invalid.forEach((el) => el.setAttribute("aria-invalid", "true"));
+    shake(invalid[0]);
+    invalid[0].focus();
+    return;
+  }
+  const btn = $("#authSubmit");
+  btn.classList.add("is-busy");
+  try {
+    if (up) await sync.signUp({ name, email, password });
+    else await sync.signIn({ email, password });
+    sheets.close();
+    toast(up ? `Welcome, ${name}` : "Signed in");
+    afterAuth?.();
+  } catch (err) {
+    $("#authError").textContent = friendlyError(err);
+    $("#authError").hidden = false;
+  } finally {
+    btn.classList.remove("is-busy");
+  }
+}
+
 function renderPlan() {
+  renderShareCard();
   const { settings, limits, recurring } = store.state;
   const { pay } = settings;
   const cur = currentYM();
@@ -1164,7 +1356,16 @@ function wireEvents() {
   $("#balJust").addEventListener("click", () => resolveBalance(false));
   $("#balBack").addEventListener("click", () => { showBalanceStep("ask"); $("#balanceAmount").select(); });
 
-  for (const sheet of [entrySheet, billSheet, paySheet, balanceSheet]) {
+  // Account
+  authSheet.addEventListener("submit", (e) => { e.preventDefault(); submitAuth(); });
+  $("#authSwitch").addEventListener("click", () => { authMode = authMode === "signup" ? "signin" : "signup"; paintAuth(); });
+  $("#obJoinBtn").addEventListener("click", () => {
+    finishOnboarding(false);
+    location.hash = "#plan";
+    openAuth("signup", () => setTimeout(() => $("#joinCode")?.focus(), 300));
+  });
+
+  for (const sheet of [entrySheet, billSheet, paySheet, balanceSheet, authSheet]) {
     enableDragToDismiss(sheet, () => sheets.close());
     $("[data-close]", sheet).addEventListener("click", () => sheets.close());
   }
@@ -1207,7 +1408,7 @@ function wireEvents() {
     e.target.value = "";
   });
   $("#resetBtn").addEventListener("click", () => {
-    if (!confirm("Erase all expenses, bills and settings? This can't be undone unless you have a backup.")) return;
+    if (!confirm("Erase everything on this phone? A shared budget stays safe online, but this phone stops syncing. This can't be undone unless you have a backup.")) return;
     store.reset();
     ui.ym = currentYM();
     showOnboarding();
@@ -1271,6 +1472,7 @@ function registerServiceWorker() {
 store.subscribe((state) => {
   if (state.settings.currency !== money.currency) money = createMoney(state.settings.currency);
   applyTheme(state.settings.theme);
+  if (state.onboarded) $("#onboarding").hidden = true; // e.g. joined a shared budget
   render();
 });
 
@@ -1279,5 +1481,7 @@ wireEvents();
 applyTheme(store.state.settings.theme);
 $("#greeting").textContent = greeting();
 route();
+$("#obJoin").hidden = !sync.info.enabled;
 if (!store.state.onboarded) showOnboarding();
 registerServiceWorker();
+sync.start();
