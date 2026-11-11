@@ -1,0 +1,13 @@
+# OS / editor clutter
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Logs and local tooling
+*.log
+node_modules/
+
+# Never commit backups of personal spending data
+pocket-backup-*.json

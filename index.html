@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Pocket is a private, offline-first spending tracker that helps you hit your savings goal every month.">
+  <meta name="theme-color" content="#0a0b0f">
+  <meta name="color-scheme" content="dark light">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Pocket">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Pocket · Spending &amp; Savings</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/app.css">
+  <script>
+    // Apply the saved theme before first paint to avoid a flash.
+    try {
+      const t = JSON.parse(localStorage.getItem("pocket:v2"))?.settings?.theme;
+      if (t) document.documentElement.dataset.theme = t;
+    } catch {}
+  </script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <!-- Icon sprite -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20v-8M10 20V5M16 20v-6M22 20H2"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h9m4 0h3M4 12h3m4 0h9M4 18h11m4 0h1M15 4v4M9 10v4M17 16v4"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-backspace" viewBox="0 0 24 24"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1zM17.5 9.5l-5 5M12.5 9.5l5 5"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-14M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM21 21l-4.35-4.35"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 17.5a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-trend-up" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 21V9M7 14l5-5 5 5M5 3h14"/></symbol>
+    <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2zM9 8h6M9 12h6M9 16h3"/></symbol>
+    <symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 10 12 4l9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18"/></symbol>
+    <symbol id="i-pay" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/></symbol>
+  </svg>
+
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <div class="app">
+    <header class="topbar">
+      <div class="topbar__title">
+        <p class="topbar__eyebrow" id="greeting">Welcome</p>
+        <h1 class="topbar__heading" id="viewTitle">Overview</h1>
+      </div>
+      <div class="month-switch" id="monthSwitch" role="group" aria-label="Month">
+        <button class="icon-btn" id="prevMonth" type="button" aria-label="Previous month"><svg class="i"><use href="#i-chevron-left"/></svg></button>
+        <button class="month-switch__label" id="monthLabel" type="button"></button>
+        <button class="icon-btn" id="nextMonth" type="button" aria-label="Next month"><svg class="i"><use href="#i-chevron-right"/></svg></button>
+      </div>
+    </header>
+
+    <main id="main" tabindex="-1">
+      <!-- ================= HOME ================= -->
+      <section class="view" data-view="home" aria-labelledby="viewTitle">
+        <article class="hero">
+          <div class="hero__row">
+            <span class="hero__label">Left to spend</span>
+            <span class="pill" id="paceBadge" data-tone="neutral"></span>
+          </div>
+          <p class="hero__amount num" id="heroLeft">$0</p>
+          <div class="meter meter--hero" id="heroMeter" role="progressbar" aria-label="Budget used" aria-valuemin="0" aria-valuemax="100">
+            <span class="meter__fill" id="heroFill"></span>
+            <span class="meter__marker" id="heroMarker" title="Even pace for today"></span>
+          </div>
+          <div class="hero__row hero__row--meta">
+            <span id="heroSpent"></span>
+            <span id="heroBudget"></span>
+          </div>
+          <dl class="hero__stats">
+            <div><dt>Left today</dt><dd class="num" id="statToday">–</dd></div>
+            <div><dt>Per day</dt><dd class="num" id="statDaily">–</dd></div>
+            <div><dt>Days left</dt><dd class="num" id="statDays">–</dd></div>
+          </dl>
+        </article>
+
+        <div class="stack" id="billsDue" aria-live="polite"></div>
+        <article class="card balance" id="balanceCard" aria-labelledby="balanceTitle"></article>
+        <div class="stack" id="insights" aria-live="polite"></div>
+
+        <article class="card">
+          <header class="card__head">
+            <h2>Savings</h2>
+            <span class="card__meta" id="saveCaption"></span>
+          </header>
+          <div class="savings">
+            <div class="ring-wrap">
+              <svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
+                <defs>
+                  <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" style="stop-color:var(--accent-2)"/>
+                    <stop offset="1" style="stop-color:var(--accent)"/>
+                  </linearGradient>
+                </defs>
+                <circle class="ring__track" cx="50" cy="50" r="42"/>
+                <circle class="ring__fill" id="ringFill" cx="50" cy="50" r="42" stroke-dasharray="263.89" stroke-dashoffset="263.89"/>
+              </svg>
+              <span class="ring__pct num" id="ringPct">0%</span>
+            </div>
+            <div class="savings__body">
+              <p class="savings__label" id="saveLabel">Projected this month</p>
+              <p class="savings__value num" id="saveProjected">$0</p>
+              <p class="savings__note" id="saveNote"></p>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <header class="card__head">
+            <h2>Spending pace</h2>
+            <span class="key-legend" aria-hidden="true"><i class="key-legend__line"></i>Actual <i class="key-legend__dash"></i>Even pace</span>
+          </header>
+          <svg class="chart" id="burnChart" viewBox="0 0 320 140" role="img" aria-label="Cumulative spending this month compared with an even pace"></svg>
+        </article>
+
+        <article class="card">
+          <header class="card__head"><h2>Categories</h2></header>
+          <div class="breakdown">
+            <svg class="donut" id="donut" viewBox="0 0 120 120" role="img" aria-label="Spending by category"></svg>
+            <ul class="legend" id="legend"></ul>
+          </div>
+          <div class="limits" id="limits"></div>
+        </article>
+
+        <article class="card">
+          <header class="card__head">
+            <h2>Recent</h2>
+            <a class="link" href="#activity">See all</a>
+          </header>
+          <div class="tx-list" id="recent"></div>
+        </article>
+      </section>
+
+      <!-- ================= ACTIVITY ================= -->
+      <section class="view" data-view="activity" aria-labelledby="viewTitle" hidden>
+        <div class="summary">
+          <div><span class="summary__label">Spent</span><strong class="summary__value num" id="actTotal">$0</strong></div>
+          <div><span class="summary__label">Paid in</span><strong class="summary__value summary__value--in num" id="actIncome">$0</strong></div>
+        </div>
+        <label class="search">
+          <svg class="i"><use href="#i-search"/></svg>
+          <span class="sr-only">Search transactions</span>
+          <input id="search" type="search" placeholder="Search notes or categories" autocomplete="off" enterkeyhint="search">
+        </label>
+        <div class="filters" id="filters" role="group" aria-label="Filter by category"></div>
+        <div id="activityList"></div>
+      </section>
+
+      <!-- ================= INSIGHTS ================= -->
+      <section class="view" data-view="insights" aria-labelledby="viewTitle" hidden>
+        <article class="card">
+          <header class="card__head">
+            <h2>Last 6 months</h2>
+            <span class="card__meta">Flexible spending</span>
+          </header>
+          <svg class="chart" id="barsChart" viewBox="0 0 320 180" role="img" aria-label="Flexible spending for the last six months"></svg>
+        </article>
+
+        <div class="stat-grid">
+          <div class="stat"><span class="stat__label">Avg. monthly spend</span><strong class="stat__value num" id="stAvg">$0</strong></div>
+          <div class="stat"><span class="stat__label">Total saved</span><strong class="stat__value num" id="stSaved">$0</strong></div>
+          <div class="stat"><span class="stat__label">Goal streak</span><strong class="stat__value num" id="stStreak">0 months</strong></div>
+          <div class="stat"><span class="stat__label">Top category</span><strong class="stat__value" id="stTop">–</strong></div>
+        </div>
+
+        <article class="card">
+          <header class="card__head">
+            <h2>Month over month</h2>
+            <span class="card__meta" id="cmpCaption"></span>
+          </header>
+          <ul class="compare" id="compare"></ul>
+        </article>
+      </section>
+
+      <!-- ================= PLAN ================= -->
+      <section class="view" data-view="plan" aria-labelledby="viewTitle" hidden>
+        <article class="card">
+          <header class="card__head"><h2>Monthly plan</h2></header>
+          <div class="field">
+            <span class="field__label" id="payFreqLabel">How you get paid</span>
+            <div class="segmented" id="payFreq" role="radiogroup" aria-labelledby="payFreqLabel">
+              <button type="button" role="radio" data-freq="weekly">Weekly</button>
+              <button type="button" role="radio" data-freq="biweekly">Every 2 weeks</button>
+              <button type="button" role="radio" data-freq="monthly">Monthly</button>
+            </div>
+          </div>
+          <div class="field" id="incomeField">
+            <label class="field__label" for="income">Monthly take-home income</label>
+            <div class="money-field">
+              <span class="money-field__sym" data-currency-symbol>$</span>
+              <input class="input num" id="income" type="text" inputmode="decimal" autocomplete="off" placeholder="0">
+            </div>
+          </div>
+          <div class="field-row field-row--even" id="paycheckFields">
+            <div class="field">
+              <label class="field__label" for="paycheck">Typical paycheck</label>
+              <div class="money-field">
+                <span class="money-field__sym" data-currency-symbol>$</span>
+                <input class="input num" id="paycheck" type="text" inputmode="decimal" autocomplete="off" placeholder="0">
+              </div>
+            </div>
+            <div class="field" id="paydayField">
+              <label class="field__label" for="payday">Payday</label>
+              <select class="input" id="payday"></select>
+            </div>
+            <div class="field" id="anchorField">
+              <label class="field__label" for="payAnchor">A recent payday</label>
+              <input class="input" id="payAnchor" type="date">
+            </div>
+          </div>
+          <p class="field__hint field__hint--block" id="payHint"></p>
+          <div class="field">
+            <label class="field__label" for="goal">Savings goal</label>
+            <div class="money-field">
+              <span class="money-field__sym" data-currency-symbol>$</span>
+              <input class="input num" id="goal" type="text" inputmode="decimal" autocomplete="off" placeholder="0">
+            </div>
+            <p class="field__hint" id="goalHint"></p>
+          </div>
+          <dl class="equation" id="equation"></dl>
+        </article>
+
+        <article class="card">
+          <header class="card__head">
+            <h2>Fixed bills</h2>
+            <button class="btn btn--soft btn--sm" id="addBill" type="button"><svg class="i"><use href="#i-plus"/></svg>Add</button>
+          </header>
+          <p class="card__desc">Rent, utilities, card payments. Set aside automatically each month, so you don't log them as expenses.</p>
+          <div class="tx-list" id="bills"></div>
+        </article>
+
+        <article class="card">
+          <header class="card__head">
+            <h2>Category limits</h2>
+            <span class="card__meta">Optional</span>
+          </header>
+          <div class="limit-fields" id="limitFields"></div>
+        </article>
+
+        <article class="card">
+          <header class="card__head"><h2>Preferences</h2></header>
+          <div class="field">
+            <label class="field__label" for="currency">Currency</label>
+            <select class="input" id="currency"></select>
+          </div>
+          <div class="field">
+            <span class="field__label" id="themeLabel">Appearance</span>
+            <div class="segmented" id="themeSeg" role="radiogroup" aria-labelledby="themeLabel">
+              <button type="button" role="radio" data-theme-option="system">System</button>
+              <button type="button" role="radio" data-theme-option="light">Light</button>
+              <button type="button" role="radio" data-theme-option="dark">Dark</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <header class="card__head"><h2>Your data</h2></header>
+          <p class="card__desc">Stored only on this device. No account, no tracking. Export a backup now and then.</p>
+          <div class="btn-row">
+            <button class="btn btn--soft" id="exportBtn" type="button"><svg class="i"><use href="#i-download"/></svg>Export</button>
+            <button class="btn btn--soft" id="importBtn" type="button"><svg class="i"><use href="#i-upload"/></svg>Import</button>
+          </div>
+          <button class="btn btn--danger btn--block" id="resetBtn" type="button">Erase all data</button>
+          <input id="importFile" type="file" accept="application/json,.json" hidden>
+        </article>
+
+        <p class="footnote">Pocket 2.2 · Works offline</p>
+      </section>
+    </main>
+
+    <nav class="tabbar" aria-label="Primary">
+      <a class="tab" href="#home" data-route="home"><svg class="i"><use href="#i-home"/></svg><span>Home</span></a>
+      <a class="tab" href="#activity" data-route="activity"><svg class="i"><use href="#i-list"/></svg><span>Activity</span></a>
+      <button class="fab" id="fab" type="button" aria-label="Add expense"><svg class="i"><use href="#i-plus"/></svg></button>
+      <a class="tab" href="#insights" data-route="insights"><svg class="i"><use href="#i-chart"/></svg><span>Insights</span></a>
+      <a class="tab" href="#plan" data-route="plan"><svg class="i"><use href="#i-sliders"/></svg><span>Plan</span></a>
+    </nav>
+  </div>
+
+  <!-- ================= SHEETS ================= -->
+  <div class="scrim" id="scrim" hidden></div>
+
+  <form class="sheet" id="entrySheet" role="dialog" aria-modal="true" aria-labelledby="entryTitle" tabindex="-1" novalidate hidden>
+    <div class="sheet__top" data-drag-handle>
+      <div class="sheet__grab" aria-hidden="true"></div>
+      <div class="sheet__head">
+        <button type="button" class="text-btn" data-close>Cancel</button>
+        <h2 id="entryTitle">New expense</h2>
+        <button type="button" class="icon-btn icon-btn--danger" id="entryDelete" aria-label="Delete" hidden><svg class="i"><use href="#i-trash"/></svg></button>
+      </div>
+    </div>
+    <div class="segmented segmented--2 entry-mode" id="entryMode" role="radiogroup" aria-label="Type">
+      <button type="button" role="radio" data-mode="expense">Expense</button>
+      <button type="button" role="radio" data-mode="income">Paycheck</button>
+    </div>
+    <output class="amount" id="amountDisplay" aria-live="polite" aria-label="Amount">
+      <span class="amount__sym" data-currency-symbol>$</span><span class="amount__value num" id="amountValue">0</span>
+    </output>
+    <div class="cat-scroller" id="catScroller" role="radiogroup" aria-label="Category"></div>
+    <div class="entry-meta">
+      <label class="entry-meta__note">
+        <span class="sr-only">Note</span>
+        <input id="entryNote" type="text" maxlength="80" placeholder="Add a note" autocomplete="off" enterkeyhint="done">
+      </label>
+      <label class="entry-meta__date">
+        <svg class="i"><use href="#i-calendar"/></svg>
+        <span id="entryDateLabel">Today</span>
+        <input id="entryDate" type="date" aria-label="Date" required>
+      </label>
+    </div>
+    <div class="keypad" id="keypad"></div>
+    <button class="btn btn--primary btn--block btn--lg" type="submit" id="entrySave">Add expense</button>
+  </form>
+
+  <form class="sheet" id="billSheet" role="dialog" aria-modal="true" aria-labelledby="billTitle" tabindex="-1" novalidate hidden>
+    <div class="sheet__top" data-drag-handle>
+      <div class="sheet__grab" aria-hidden="true"></div>
+      <div class="sheet__head">
+        <button type="button" class="text-btn" data-close>Cancel</button>
+        <h2 id="billTitle">New bill</h2>
+        <button type="button" class="icon-btn icon-btn--danger" id="billDelete" aria-label="Delete bill" hidden><svg class="i"><use href="#i-trash"/></svg></button>
+      </div>
+    </div>
+    <div class="presets" id="billPresets" role="group" aria-label="Quick add"></div>
+    <div class="field">
+      <label class="field__label" for="billName">Name</label>
+      <input class="input" id="billName" type="text" maxlength="40" placeholder="e.g. Rent, Netflix, Phone" autocomplete="off" required>
+    </div>
+    <label class="switch-row">
+      <span class="switch-row__text">
+        <span class="switch-row__title">Amount changes each month</span>
+        <span class="switch-row__desc">For utilities and card payments. You'll be asked for the real amount when it's due.</span>
+      </span>
+      <input class="switch" id="billVariable" type="checkbox" role="switch">
+    </label>
+    <div class="field-row">
+      <div class="field">
+        <label class="field__label" for="billAmount" id="billAmountLabel">Amount</label>
+        <div class="money-field">
+          <span class="money-field__sym" data-currency-symbol>$</span>
+          <input class="input num" id="billAmount" type="text" inputmode="decimal" autocomplete="off" placeholder="0" required>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field__label" for="billDay">Day of month</label>
+        <input class="input num" id="billDay" type="number" inputmode="numeric" min="1" max="31" value="1" required>
+      </div>
+    </div>
+    <div class="field">
+      <label class="field__label" for="billCategory">Category</label>
+      <select class="input" id="billCategory"></select>
+    </div>
+    <section class="bill-history" id="billHistory" aria-labelledby="billHistoryTitle" hidden>
+      <div class="bill-history__head">
+        <h3 id="billHistoryTitle">Last 6 months</h3>
+        <span class="card__meta" id="billHistoryStats"></span>
+      </div>
+      <div class="bill-history__bars" id="billHistoryBars"></div>
+      <button class="btn btn--soft btn--block" type="button" id="billEnterNow">Enter this month's amount</button>
+    </section>
+    <button class="btn btn--primary btn--block btn--lg" type="submit" id="billSave">Add bill</button>
+  </form>
+
+  <form class="sheet" id="paySheet" role="dialog" aria-modal="true" aria-labelledby="payTitle" tabindex="-1" novalidate hidden>
+    <div class="sheet__top" data-drag-handle>
+      <div class="sheet__grab" aria-hidden="true"></div>
+      <div class="sheet__head">
+        <button type="button" class="text-btn" data-close>Cancel</button>
+        <h2 id="payTitle">Bill amount</h2>
+        <span></span>
+      </div>
+    </div>
+    <p class="pay__sub" id="paySub"></p>
+    <div class="field">
+      <label class="field__label" for="payAmount">Amount on this month's bill</label>
+      <div class="money-field">
+        <span class="money-field__sym" data-currency-symbol>$</span>
+        <input class="input input--lg num" id="payAmount" type="text" inputmode="decimal" autocomplete="off" placeholder="0" required>
+      </div>
+      <p class="field__hint" id="payHint"></p>
+    </div>
+    <button class="btn btn--primary btn--block btn--lg" type="submit">Save amount</button>
+    <button class="btn btn--danger btn--block" type="button" id="payClear" hidden>Clear this month's amount</button>
+  </form>
+
+  <form class="sheet" id="balanceSheet" role="dialog" aria-modal="true" aria-labelledby="balSheetTitle" tabindex="-1" novalidate hidden>
+    <div class="sheet__top" data-drag-handle>
+      <div class="sheet__grab" aria-hidden="true"></div>
+      <div class="sheet__head">
+        <button type="button" class="text-btn" data-close>Cancel</button>
+        <h2 id="balSheetTitle">Bank balance</h2>
+        <span></span>
+      </div>
+    </div>
+    <div id="balAsk">
+      <p class="pay__sub">Open your banking app and enter what's in your account right now.</p>
+      <div class="field">
+        <label class="field__label" for="balanceAmount">Current balance</label>
+        <div class="money-field">
+          <span class="money-field__sym" data-currency-symbol>$</span>
+          <input class="input input--lg num" id="balanceAmount" type="text" inputmode="decimal" autocomplete="off" placeholder="0" required>
+        </div>
+        <p class="field__hint" id="balanceHint"></p>
+      </div>
+      <button class="btn btn--primary btn--block btn--lg" type="submit">Save balance</button>
+    </div>
+    <div class="bal-result" id="balResult" hidden>
+      <span class="bal-result__icon"><svg class="i"><use href="#i-alert"/></svg></span>
+      <h3 class="bal-result__title" id="balResultTitle"></h3>
+      <p class="bal-result__text" id="balResultText"></p>
+      <dl class="equation" id="balCompare"></dl>
+      <p class="bal-result__ask">What would you like to do?</p>
+      <button class="btn btn--primary btn--block btn--lg" type="button" id="balLog"></button>
+      <button class="btn btn--soft btn--block" type="button" id="balJust">Just update my balance</button>
+      <button class="text-btn bal-result__back" type="button" id="balBack">Re-enter the amount</button>
+    </div>
+  </form>
+
+  <!-- ================= ONBOARDING ================= -->
+  <div class="onboarding" id="onboarding" role="dialog" aria-modal="true" aria-labelledby="obTitle" hidden>
+    <form class="onboarding__inner" id="obForm" novalidate>
+      <img class="onboarding__logo" src="icons/icon.svg" alt="" width="64" height="64">
+      <h2 class="onboarding__title" id="obTitle">Let's build your plan</h2>
+      <p class="onboarding__lead">A few quick details and you're set. Pocket turns your pay into a daily allowance so saving happens by default.</p>
+      <div class="field">
+        <span class="field__label" id="obFreqLabel">How do you get paid?</span>
+        <div class="segmented" id="obFreq" role="radiogroup" aria-labelledby="obFreqLabel">
+          <button type="button" role="radio" data-freq="weekly" aria-checked="true">Weekly</button>
+          <button type="button" role="radio" data-freq="biweekly" aria-checked="false">Every 2 weeks</button>
+          <button type="button" role="radio" data-freq="monthly" aria-checked="false">Monthly</button>
+        </div>
+      </div>
+      <div class="field-row field-row--even">
+        <div class="field">
+          <label class="field__label" for="obIncome" id="obIncomeLabel">Typical paycheck</label>
+          <div class="money-field">
+            <span class="money-field__sym" data-currency-symbol>$</span>
+            <input class="input input--lg num" id="obIncome" type="text" inputmode="decimal" autocomplete="off" placeholder="0">
+          </div>
+        </div>
+        <div class="field" id="obPaydayField">
+          <label class="field__label" for="obPayday">Payday</label>
+          <select class="input input--lg" id="obPayday"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field__label" for="obGoal">Monthly savings goal</label>
+        <div class="money-field">
+          <span class="money-field__sym" data-currency-symbol>$</span>
+          <input class="input input--lg num" id="obGoal" type="text" inputmode="decimal" autocomplete="off" placeholder="0">
+        </div>
+        <p class="field__hint" id="obHint">Tip: 20% of income is a common target.</p>
+      </div>
+      <div class="field">
+        <label class="field__label" for="obBalance">Bank balance right now <span class="optional">optional</span></label>
+        <div class="money-field">
+          <span class="money-field__sym" data-currency-symbol>$</span>
+          <input class="input input--lg num" id="obBalance" type="text" inputmode="decimal" autocomplete="off" placeholder="0">
+        </div>
+        <p class="field__hint">Pocket keeps a running estimate and checks in with you weekly.</p>
+      </div>
+      <div class="field">
+        <label class="field__label" for="obCurrency">Currency</label>
+        <select class="input" id="obCurrency"></select>
+      </div>
+      <button class="btn btn--primary btn--block btn--lg" type="submit">Start tracking</button>
+      <button class="text-btn onboarding__skip" id="obSkip" type="button">Skip for now</button>
+    </form>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <span data-toast-msg></span>
+    <button type="button" class="toast__action" data-toast-action hidden>Undo</button>
+  </div>
+</body>
+</html>
