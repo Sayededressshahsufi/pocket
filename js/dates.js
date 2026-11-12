@@ -32,7 +32,7 @@ export function daysInMonth(ym) {
 export const lastDayOf = (ym) => `${ym}-${pad(daysInMonth(ym))}`;
 
 export function monthLabel(ym, style = "long") {
-  const opts = style === "short" ? { month: "short" } : { month: "long", year: "numeric" };
+  const opts = style === "short" ? { month: "short" } : style === "name" ? { month: "long" } : { month: "long", year: "numeric" };
   return parseISO(`${ym}-01`).toLocaleDateString(undefined, opts);
 }
 

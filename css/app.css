@@ -963,6 +963,197 @@ select.input {
 .bal-result__back { margin-top: 10px; font-size: 14px; color: var(--text-2); }
 
 /* ==========================================================================
+   Insights pack
+   ========================================================================== */
+.card__lead { color: var(--text-2); font-size: 13.5px; margin: -6px 0 14px; }
+.card__lead:empty { display: none; }
+
+/* This week */
+.week { position: relative; overflow: hidden; }
+.week::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+.week__eyebrow { color: var(--text-3); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.week__headline { margin: 4px 0 6px; font-size: 18px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.3; }
+.week__detail { color: var(--text-2); font-size: 13.5px; }
+.week__stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+.week__stat { padding: 10px 12px; border-radius: 12px; background: var(--surface-2); min-width: 0; }
+.week__stat small { display: block; color: var(--text-3); font-size: 11px; font-weight: 500; }
+.week__stat strong { display: block; font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.week__stat .is-up { color: var(--bad); }
+.week__stat .is-down { color: var(--good); }
+.week--compact { display: block; }
+.week--compact:hover { border-color: var(--border-strong); }
+.week--compact .week__headline { font-size: 16px; }
+
+/* Can I afford this? */
+.afford__form { display: flex; gap: 8px; }
+.afford__form .money-field { flex: 1; min-width: 0; }
+.afford__result:empty { display: none; }
+.afford__result {
+  --tone: var(--info);
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--tone) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--tone) 28%, transparent);
+  animation: view-in 0.3s var(--ease);
+}
+.afford__result[data-tone="good"] { --tone: var(--good); }
+.afford__result[data-tone="warn"] { --tone: var(--warn); }
+.afford__result[data-tone="bad"] { --tone: var(--bad); }
+.afford__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 11px;
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 16%, transparent);
+}
+.afford__icon .i { width: 18px; height: 18px; }
+.afford__title { font-weight: 700; font-size: 15px; }
+.afford__text { color: var(--text-2); font-size: 13.5px; margin-top: 2px; }
+
+/* Bills vs last month */
+.bill-cmp { display: grid; }
+.bill-cmp__row { display: flex; align-items: center; gap: 12px; padding: 11px 0; }
+.bill-cmp__row + .bill-cmp__row { border-top: 1px solid var(--border); }
+.bill-cmp__body { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.bill-cmp__name { font-weight: 600; }
+.bill-cmp__line { color: var(--text-2); font-size: 12.5px; }
+.bill-cmp__side { display: grid; justify-items: end; gap: 3px; }
+.bill-cmp__amount { font-weight: 700; white-space: nowrap; }
+.bill-cmp__amount.is-estimate { color: var(--text-3); font-weight: 600; }
+.bill-cmp__total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-strong);
+  font-weight: 650;
+}
+.trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+.trend[data-dir="up"] { color: var(--bad); background: color-mix(in srgb, var(--bad) 13%, transparent); }
+.trend[data-dir="down"] { color: var(--good); background: color-mix(in srgb, var(--good) 13%, transparent); }
+.trend[data-dir="wait"] { color: var(--warn); background: color-mix(in srgb, var(--warn) 13%, transparent); }
+
+/* Calendar */
+.cal-key { display: inline-flex; align-items: center; gap: 3px; color: var(--text-3); font-size: 11px; }
+.cal-key i { width: 10px; height: 10px; border-radius: 3px; }
+.cal-key i[data-l="1"], .cal__day[data-l="1"] { background: color-mix(in srgb, var(--accent) 22%, var(--surface-2)); }
+.cal-key i[data-l="2"], .cal__day[data-l="2"] { background: color-mix(in srgb, var(--accent) 45%, var(--surface-2)); }
+.cal-key i[data-l="3"], .cal__day[data-l="3"] { background: color-mix(in srgb, var(--warn) 55%, var(--surface-2)); }
+.cal-key i[data-l="4"], .cal__day[data-l="4"] { background: color-mix(in srgb, var(--bad) 70%, var(--surface-2)); }
+.cal {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+.cal__dow { text-align: center; color: var(--text-3); font-size: 10.5px; font-weight: 600; padding-bottom: 2px; }
+.cal__day {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 9px;
+  background: var(--surface-2);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  transition: transform 0.12s var(--ease);
+}
+.cal__day[data-l="3"], .cal__day[data-l="4"] { color: #fff; }
+.cal__day[data-l="2"] { color: var(--text); }
+.cal__day:active { transform: scale(0.94); }
+.cal__day.is-future { opacity: 0.35; pointer-events: none; }
+.cal__day.is-today { box-shadow: inset 0 0 0 2px var(--accent); }
+.cal__day[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--text); }
+.cal-detail:empty { display: none; }
+.cal-detail { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.cal-detail__head { display: flex; justify-content: space-between; font-size: 13px; font-weight: 650; margin-bottom: 4px; }
+
+/* Forecast */
+.forecast__value { font-size: 30px; font-weight: 750; letter-spacing: -0.035em; }
+.forecast__value.is-negative { color: var(--bad); }
+.forecast__label { color: var(--text-2); font-size: 13px; }
+.forecast__row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+
+/* Weekday bars */
+.wd-bars {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  align-items: end;
+  gap: 8px;
+  height: 110px;
+}
+.wd { display: grid; grid-template-rows: auto 1fr auto; justify-items: center; gap: 4px; height: 100%; min-height: 0; }
+.wd__value { font-size: 10px; font-weight: 600; color: var(--text-3); white-space: nowrap; }
+.wd__track { display: flex; align-items: flex-end; width: 100%; max-width: 28px; height: 100%; min-height: 0; }
+.wd__fill { width: 100%; min-height: 3px; border-radius: 6px; background: var(--surface-3); transition: height 0.6s var(--ease); }
+.wd.is-top .wd__fill { background: linear-gradient(180deg, var(--accent-2), var(--accent)); }
+.wd.is-top .wd__value { color: var(--text); }
+.wd__label { font-size: 11px; color: var(--text-3); font-weight: 600; }
+
+.habit-notes { display: grid; gap: 10px; margin-top: 16px; }
+.habit-notes:empty { display: none; }
+.habit {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-size: 13.5px;
+}
+.habit .i { width: 18px; height: 18px; color: var(--accent); margin-top: 1px; }
+.places { display: grid; gap: 2px; margin-top: 4px; }
+.place { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+.place + .place { border-top: 1px solid var(--border); }
+.place__name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.place__count { color: var(--text-3); font-size: 12px; }
+.place__total { font-weight: 650; }
+
+/* Year in review */
+.year-switch { display: flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 650; }
+.year-switch .icon-btn { width: 30px; height: 30px; }
+.year-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.year-bars {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  align-items: end;
+  gap: 4px;
+  height: 120px;
+}
+.ybar { display: grid; grid-template-rows: 1fr auto; justify-items: center; gap: 4px; height: 100%; min-height: 0; }
+.ybar__track { position: relative; display: flex; align-items: flex-end; width: 100%; height: 100%; min-height: 0; }
+.ybar__fill { width: 100%; min-height: 2px; border-radius: 4px; background: color-mix(in srgb, var(--good) 75%, transparent); }
+.ybar.is-negative .ybar__fill { background: color-mix(in srgb, var(--bad) 70%, transparent); }
+.ybar.is-current .ybar__fill { background: var(--accent); }
+.ybar.is-partial .ybar__fill { opacity: 0.35; }
+.ybar.is-empty .ybar__fill { background: none; border: 1px dashed var(--border-strong); height: 30% !important; }
+.ybar__label { font-size: 9.5px; color: var(--text-3); font-weight: 600; }
+
+/* ==========================================================================
    Sharing
    ========================================================================== */
 .share__intro { color: var(--text-2); font-size: 13.5px; margin: -4px 0 14px; }

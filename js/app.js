@@ -18,6 +18,11 @@ import { applyKey, centsToInput, createMoney, CURRENCIES, currencyName, toCents 
 import { createStore, uid } from "./store.js";
 import { createSync, friendlyError } from "./sync.js";
 import {
+  billComparisons, byWeekday, canAfford, savingsForecast, smallPurchases, spendingCalendar, topPlaces,
+  weeklySummary, yearView,
+} from "./insights.js";
+import * as voice from "./voice.js";
+import {
   $, $$, createSheetController, createToast, enableDragToDismiss, h, haptic, icon, pathIcon, shake,
 } from "./ui.js";
 
@@ -29,11 +34,18 @@ const toast = createToast($("#toast"));
 const sheets = createSheetController($("#scrim"));
 const DECIMAL = (1.1).toLocaleString().charAt(1);
 const sync = createSync(store, {
-  onChange: () => { if (ui.view === "plan") renderShareCard(); },
+  onChange: () => {
+    $("#greeting").textContent = greeting();
+    if (ui.view === "plan") renderShareCard();
+  },
   onRemoteEdit: (who) => toast(`${who} updated the budget`),
 });
 
-const ui = { view: "home", ym: currentYM(), query: "", filter: null };
+const ui = {
+  view: "home", ym: currentYM(), query: "", filter: null,
+  year: new Date().getFullYear(), calDay: null, afford: null,
+};
+const todaySeed = (topic) => `${toISO(new Date())}:${topic}`;
 let money = createMoney(store.state.settings.currency);
 let lastCategory = "groceries";
 
@@ -50,10 +62,7 @@ const byNewest = (a, b) => b.date.localeCompare(a.date) || b.createdAt - a.creat
 const minus = (cents) => `\u2212${money.format(cents)}`;
 
 function greeting(hour = new Date().getHours()) {
-  if (hour < 5) return "Good evening";
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
+  return voice.greeting(hour, sync.info.user?.name ?? "");
 }
 
 // ---------------------------------------------------------------------------
@@ -250,6 +259,8 @@ function renderHome() {
     ...(payday ? [paydayCard(payday)] : []),
     ...billsDue(state, ui.ym, now).map(dueCard));
   renderBalanceCard(now);
+  $("#weekCardHome").hidden = ui.ym !== currentYM(now);
+  if (!$("#weekCardHome").hidden) renderWeekCard($("#weekCardHome"), { compact: true });
 
   // Coaching
   $("#insights").replaceChildren(...buildInsights(state, ui.ym, now, money).slice(0, 2).map(insightCard));
@@ -355,9 +366,169 @@ function renderActivity() {
 }
 
 // ---------------------------------------------------------------------------
-// Insights
+// Insights pack
 // ---------------------------------------------------------------------------
+const WEEKDAY_SHORT = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 7 + i).toLocaleDateString(undefined, { weekday: "narrow" }));
+const shortDate = (iso) => parseISO(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+function renderWeekCard(el, { compact = false } = {}) {
+  const w = weeklySummary(store.state);
+  const stat = (label, value, cls) => h("div", { class: "week__stat" }, h("small", {}, label), h("strong", { class: `num ${cls ?? ""}` }, value));
+  const vs = !w.hadLastWeek ? "–" : `${w.change > 0 ? "+" : w.change < 0 ? "\u2212" : ""}${money.short(Math.abs(w.change))}`;
+  el.replaceChildren(...[
+    h("p", { class: "week__eyebrow" }, `This week · ${shortDate(w.start)} – ${shortDate(w.end)}`),
+    h("p", { class: "week__headline" }, voice.weeklyHeadline(w, money, todaySeed("week"))),
+    !compact && h("p", { class: "week__detail" }, voice.weeklyDetail(w, money)),
+    h("div", { class: "week__stats" },
+      stat("Spent", money.short(w.spent)),
+      stat("vs last week", vs, w.change > 500 ? "is-up" : w.change < -500 ? "is-down" : ""),
+      compact
+        ? stat("Paid in", money.short(w.paidIn))
+        : stat("Top", w.topCategory ? getCategory(w.topCategory.id).name : "–")),
+  ].filter(Boolean));
+}
+
+function renderAfford() {
+  const box = $("#affordResult");
+  if (!ui.afford) return box.replaceChildren();
+  const r = canAfford(store.state, ui.afford);
+  const v = voice.affordVerdict(r, money);
+  const tone = { yes: "good", tight: "warn", no: "bad", unknown: "info" }[r.verdict];
+  const iconName = { yes: "check", tight: "trend-up", no: "alert", unknown: "sparkle" }[r.verdict];
+  box.dataset.tone = tone;
+  box.replaceChildren(
+    h("span", { class: "afford__icon" }, icon(iconName)),
+    h("div", {}, h("p", { class: "afford__title" }, `${v.title} · ${money.short(r.price)}`), h("p", { class: "afford__text" }, v.text)));
+}
+
+function renderBillCompare() {
+  const cmp = billComparisons(store.state, ui.ym, new Date());
+  const prevShort = monthLabel(shiftYM(ui.ym, -1), "short");
+  $("#billCmpCaption").textContent = `${monthLabel(ui.ym, "short")} vs ${prevShort}`;
+  $("#billCmpLead").textContent = voice.billsSummary(cmp, ui.ym, money, todaySeed("bills"));
+  if (!cmp.rows.length) {
+    $("#billCompare").replaceChildren(emptyState("repeat", "No bills yet", "Add rent, utilities and card payments in Plan to compare them here."));
+    return;
+  }
+  const trend = (r) => {
+    if (r.estimated) return h("span", { class: "trend", "data-dir": "wait" }, "Pending");
+    if (!r.comparable || Math.abs(r.delta) < 100) return h("span", { class: "trend" }, "Same");
+    const up = r.delta > 0;
+    return h("span", { class: "trend num", "data-dir": up ? "up" : "down" },
+      `${up ? "▲" : "▼"} ${Math.round(Math.abs(r.pct) * 100)}%`);
+  };
+  $("#billCompare").replaceChildren(
+    ...cmp.rows.map((r) => h("li", { class: "bill-cmp__row" },
+      categoryBadge(r.category),
+      h("div", { class: "bill-cmp__body" },
+        h("span", { class: "bill-cmp__name" }, r.name),
+        h("span", { class: "bill-cmp__line" }, voice.billLine(r, ui.ym, money)),
+        r.lastYear != null && !r.estimated && h("span", { class: "bill-cmp__line" },
+          `Same month last year: ${money.format(r.lastYear)}`)),
+      h("div", { class: "bill-cmp__side" },
+        h("span", { class: `bill-cmp__amount num${r.estimated ? " is-estimate" : ""}` }, `${r.estimated ? "~" : ""}${money.format(r.current)}`),
+        trend(r)))),
+    h("li", { class: "bill-cmp__total" },
+      h("span", {}, "All bills"),
+      h("span", { class: "num" }, money.format(cmp.total))));
+}
+
+function renderCalendar() {
+  const cal = spendingCalendar(store.state, ui.ym);
+  $("#calLead").textContent = voice.calendarLine(cal, money);
+  if (ui.calDay && !ui.calDay.startsWith(ui.ym)) ui.calDay = null;
+  $("#calendar").replaceChildren(
+    ...WEEKDAY_SHORT.map((d) => h("span", { class: "cal__dow", "aria-hidden": "true" }, d)),
+    ...Array.from({ length: cal.leadingBlanks }, () => h("span", { "aria-hidden": "true" })),
+    ...cal.days.map((d) => h("button", {
+      class: `cal__day num${d.future ? " is-future" : ""}${d.today ? " is-today" : ""}`,
+      type: "button", "data-l": String(d.level),
+      "aria-pressed": String(ui.calDay === d.date),
+      "aria-label": `${shortDate(d.date)}: ${d.amount ? money.format(d.amount) : "no spending"}`,
+      onclick: () => { ui.calDay = ui.calDay === d.date ? null : d.date; renderCalendar(); },
+    }, String(d.day))));
+
+  const detail = $("#calDetail");
+  if (!ui.calDay) return detail.replaceChildren();
+  const items = store.state.items.filter((i) => i.date === ui.calDay).sort(byNewest);
+  detail.replaceChildren(
+    h("div", { class: "cal-detail__head" }, h("span", {}, dayLabel(ui.calDay)), h("span", { class: "num" }, items.length ? minus(sum(items)) : "")),
+    items.length
+      ? h("div", { class: "tx-list" }, items.map((i) => txRow(i, { showDate: false })))
+      : h("p", { class: "card__lead" }, "A no-spend day. Those are the best kind."));
+}
+
+function renderForecast() {
+  const f = savingsForecast(store.state);
+  const card = $("#forecastCard");
+  const stat = (label, value) => h("div", { class: "week__stat" }, h("small", {}, label), h("strong", { class: "num" }, value));
+  card.replaceChildren(
+    h("header", { class: "card__head" }, h("h2", { id: "forecastTitle" }, "Savings forecast"), h("span", { class: "card__meta" }, `By Dec 31, ${f.year}`)),
+    h("p", { class: "forecast__label" }, "At your current pace you'll have saved"),
+    h("p", { class: `forecast__value num${f.yearEnd < 0 ? " is-negative" : ""}` }, money.short(f.yearEnd)),
+    h("p", { class: "card__lead", style: { margin: "6px 0 0" } }, voice.forecastLine(f, money)),
+    h("div", { class: "forecast__row" },
+      stat("Saved so far", money.short(f.savedSoFar)),
+      stat("Next 12 months", money.short(f.next12))));
+}
+
+function renderHabits() {
+  const wd = byWeekday(store.state);
+  $("#weekdayLead").textContent = voice.weekdayLine(wd, money);
+  const max = Math.max(...wd.avg, 1);
+  $("#weekdayBars").setAttribute("aria-label", wd.avg.map((v, i) => `${WEEKDAY_SHORT[i]} ${money.short(v)}`).join(", "));
+  $("#weekdayBars").replaceChildren(...wd.avg.map((v, i) => h("div", { class: `wd${wd.enough && i === wd.top ? " is-top" : ""}` },
+    h("span", { class: "wd__value num" }, v ? money.short(v) : ""),
+    h("span", { class: "wd__track" }, h("span", { class: "wd__fill", style: { height: `${Math.max(3, (v / max) * 100)}%` } })),
+    h("span", { class: "wd__label" }, WEEKDAY_SHORT[i]))));
+
+  const notes = [];
+  const small = voice.smallLine(smallPurchases(store.state, ui.ym), money);
+  if (small) notes.push(h("div", { class: "habit" }, icon("sparkle"), h("span", {}, small)));
+  const places = topPlaces(store.state, ui.ym);
+  if (places.length) {
+    notes.push(h("div", {},
+      h("p", { class: "week__eyebrow", style: { margin: "6px 0 2px" } }, `Top places · ${monthLabel(ui.ym, "short")}`),
+      h("div", { class: "places" }, places.map((p) => h("div", { class: "place" },
+        categoryBadge(p.category, "badge badge--sm"),
+        h("span", { class: "place__name" }, p.name),
+        h("span", { class: "place__count" }, `${p.count}×`),
+        h("span", { class: "place__total num" }, money.short(p.total)))))));
+  } else {
+    notes.push(h("p", { class: "card__lead", style: { margin: 0 } }, "Add a note like \"Trader Joe's\" when you log, and I'll show where your money goes."));
+  }
+  $("#habitNotes").replaceChildren(...notes);
+}
+
+function renderYear() {
+  const yv = yearView(store.state, ui.year);
+  $("#yearLabel").textContent = String(ui.year);
+  $("#nextYear").disabled = ui.year >= new Date().getFullYear();
+  $("#yearLead").textContent = voice.yearLine(yv, money, (ym) => monthLabel(ym, "name"));
+  const stat = (label, value) => h("div", { class: "week__stat" }, h("small", {}, label), h("strong", { class: "num" }, value));
+  $("#yearStats").replaceChildren(
+    stat("Spent", money.short(yv.totalSpent)),
+    stat("Saved", money.short(yv.totalSaved)),
+    stat("Best month", yv.best ? `${monthLabel(yv.best.ym, "short")} · ${money.short(yv.best.saved)}` : "–"),
+    stat("Toughest", yv.worst && yv.worst !== yv.best ? `${monthLabel(yv.worst.ym, "short")} · ${money.short(yv.worst.saved)}` : "–"));
+  const max = Math.max(...yv.months.map((m) => Math.abs(m.saved)), 1);
+  $("#yearBars").setAttribute("aria-label", `Saved per month in ${ui.year}`);
+  $("#yearBars").replaceChildren(...yv.months.map((m) => h("div", {
+    class: `ybar${!m.hasData ? " is-empty" : ""}${m.partial ? " is-partial" : ""}${m.saved < 0 ? " is-negative" : ""}${m.phase === "current" ? " is-current" : ""}`,
+    title: m.hasData ? `${monthLabel(m.ym)}: ${money.format(m.saved)} saved${m.partial ? " (partial month, not counted)" : ""}` : monthLabel(m.ym),
+  },
+  h("span", { class: "ybar__track" }, h("span", { class: "ybar__fill", style: { height: `${m.hasData ? Math.max(3, (Math.abs(m.saved) / max) * 100) : 30}%` } })),
+  h("span", { class: "ybar__label" }, monthLabel(m.ym, "short").charAt(0)))));
+}
+
 function renderInsights() {
+  renderWeekCard($("#weekCard"));
+  renderAfford();
+  renderBillCompare();
+  renderCalendar();
+  renderForecast();
+  renderHabits();
+  renderYear();
   const state = store.state;
   const budget = summarize(state, ui.ym).budget;
 
@@ -935,10 +1106,8 @@ function savePay() {
   });
   sheets.close();
   haptic(14);
-  const diff = average ? Math.round(((amount - average) / average) * 100) : 0;
-  toast(diff >= 20
-    ? `${bill.name}: ${money.format(amount)}, ${diff}% above your average`
-    : `${bill.name}: ${money.format(amount)} saved`, { duration: diff >= 20 ? 4000 : undefined });
+  const previous = bill.actuals?.[shiftYM(ym, -1)] ?? null;
+  toast(voice.billEntered(bill, amount, previous, average, money, ym), { duration: 4000 });
 }
 
 function clearPay() {
@@ -1355,6 +1524,19 @@ function wireEvents() {
   $("#balLog").addEventListener("click", () => resolveBalance(true));
   $("#balJust").addEventListener("click", () => resolveBalance(false));
   $("#balBack").addEventListener("click", () => { showBalanceStep("ask"); $("#balanceAmount").select(); });
+
+  // Insights
+  $("#affordForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const price = toCents($("#affordPrice").value);
+    if (price <= 0) { shake($("#affordPrice")); $("#affordPrice").focus(); return; }
+    ui.afford = price;
+    haptic(8);
+    renderAfford();
+    $("#affordPrice").blur();
+  });
+  $("#prevYear").addEventListener("click", () => { ui.year -= 1; renderYear(); });
+  $("#nextYear").addEventListener("click", () => { ui.year = Math.min(new Date().getFullYear(), ui.year + 1); renderYear(); });
 
   // Account
   authSheet.addEventListener("submit", (e) => { e.preventDefault(); submitAuth(); });

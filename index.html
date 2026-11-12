@@ -91,6 +91,7 @@
 
         <div class="stack" id="billsDue" aria-live="polite"></div>
         <article class="card balance" id="balanceCard" aria-labelledby="balanceTitle"></article>
+        <a class="card week week--compact" id="weekCardHome" href="#insights" aria-label="This week. Open insights"></a>
         <div class="stack" id="insights" aria-live="polite"></div>
 
         <article class="card">
@@ -163,6 +164,43 @@
 
       <!-- ================= INSIGHTS ================= -->
       <section class="view" data-view="insights" aria-labelledby="viewTitle" hidden>
+        <article class="card week" id="weekCard" aria-label="This week"></article>
+
+        <article class="card afford" aria-labelledby="affordTitle">
+          <header class="card__head">
+            <h2 id="affordTitle">Can I afford this?</h2>
+            <span class="card__meta">Ask before you buy</span>
+          </header>
+          <form class="afford__form" id="affordForm" novalidate>
+            <div class="money-field">
+              <span class="money-field__sym" data-currency-symbol>$</span>
+              <label class="sr-only" for="affordPrice">Price</label>
+              <input class="input num" id="affordPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="Price" enterkeyhint="go">
+            </div>
+            <button class="btn btn--primary" type="submit">Check</button>
+          </form>
+          <div class="afford__result" id="affordResult" aria-live="polite"></div>
+        </article>
+
+        <article class="card" aria-labelledby="billCmpTitle">
+          <header class="card__head">
+            <h2 id="billCmpTitle">Bills vs last month</h2>
+            <span class="card__meta" id="billCmpCaption"></span>
+          </header>
+          <p class="card__lead" id="billCmpLead"></p>
+          <ul class="bill-cmp" id="billCompare"></ul>
+        </article>
+
+        <article class="card" aria-labelledby="calTitle">
+          <header class="card__head">
+            <h2 id="calTitle">Spending calendar</h2>
+            <span class="cal-key" aria-hidden="true">Less <i data-l="1"></i><i data-l="2"></i><i data-l="3"></i><i data-l="4"></i> More</span>
+          </header>
+          <p class="card__lead" id="calLead"></p>
+          <div class="cal" id="calendar" role="grid" aria-label="Spending by day"></div>
+          <div class="cal-detail" id="calDetail" aria-live="polite"></div>
+        </article>
+
         <article class="card">
           <header class="card__head">
             <h2>Last 6 months</h2>
@@ -184,6 +222,32 @@
             <span class="card__meta" id="cmpCaption"></span>
           </header>
           <ul class="compare" id="compare"></ul>
+        </article>
+
+        <article class="card forecast" id="forecastCard" aria-labelledby="forecastTitle"></article>
+
+        <article class="card" aria-labelledby="habitsTitle">
+          <header class="card__head">
+            <h2 id="habitsTitle">Your habits</h2>
+            <span class="card__meta">Last 90 days</span>
+          </header>
+          <p class="card__lead" id="weekdayLead"></p>
+          <div class="wd-bars" id="weekdayBars" role="img"></div>
+          <div class="habit-notes" id="habitNotes"></div>
+        </article>
+
+        <article class="card" aria-labelledby="yearTitle">
+          <header class="card__head">
+            <h2 id="yearTitle">Year in review</h2>
+            <div class="year-switch" role="group" aria-label="Year">
+              <button class="icon-btn" id="prevYear" type="button" aria-label="Previous year"><svg class="i"><use href="#i-chevron-left"/></svg></button>
+              <span class="num" id="yearLabel"></span>
+              <button class="icon-btn" id="nextYear" type="button" aria-label="Next year"><svg class="i"><use href="#i-chevron-right"/></svg></button>
+            </div>
+          </header>
+          <p class="card__lead" id="yearLead"></p>
+          <div class="year-stats" id="yearStats"></div>
+          <div class="year-bars" id="yearBars" role="img"></div>
         </article>
       </section>
 
@@ -281,7 +345,7 @@
           <input id="importFile" type="file" accept="application/json,.json" hidden>
         </article>
 
-        <p class="footnote">Pocket 2.3 · Works offline</p>
+        <p class="footnote">Pocket 2.4 · Works offline</p>
       </section>
     </main>
 

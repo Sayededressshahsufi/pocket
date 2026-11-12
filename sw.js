@@ -2,7 +2,7 @@
  * Offline-first service worker. The app shell is precached under a versioned
  * cache; bump VERSION whenever any shipped file changes.
  */
-const VERSION = "pocket-v2.3.0";
+const VERSION = "pocket-v2.4.0";
 const ASSETS = [
   "./",
   "./index.html",
@@ -14,11 +14,13 @@ const ASSETS = [
   "./js/charts.js",
   "./js/config.js",
   "./js/dates.js",
+  "./js/insights.js",
   "./js/merge.js",
   "./js/money.js",
   "./js/store.js",
   "./js/sync.js",
   "./js/ui.js",
+  "./js/voice.js",
   "./js/vendor/supabase.js",
   "./icons/icon.svg",
   "./icons/icon-192.png",
