@@ -22,6 +22,11 @@ import {
   weeklySummary, yearView,
 } from "./insights.js";
 import * as voice from "./voice.js";
+import { EXPLAIN } from "./explain.js";
+import {
+  balanceStatus, billStatus, budgetStatus, forecastStatus, savingsStatus, STATES, toneOf, weekStatus, limitStatus,
+  paceStatus as paceStatusFor,
+} from "./status.js";
 import {
   $, $$, createSheetController, createToast, enableDragToDismiss, h, haptic, icon, pathIcon, shake,
 } from "./ui.js";
@@ -236,6 +241,8 @@ function renderHome() {
   // Hero
   const used = s.budget > 0 ? s.spent / s.budget : s.spent > 0 ? 1 : 0;
   const pace = paceStatus(s);
+  const paceRich = paceStatusFor(s);
+  $("#paceBadge").title = paceRich.reason;
   $("#heroLeft").textContent = money.format(s.left);
   $("#heroLeft").classList.toggle("is-negative", s.left < 0);
   $("#paceBadge").textContent = pace.label;
@@ -371,8 +378,32 @@ function renderActivity() {
 const WEEKDAY_SHORT = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 7 + i).toLocaleDateString(undefined, { weekday: "narrow" }));
 const shortDate = (iso) => parseISO(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
+/**
+ * A card's header row: title, status pill, and a "What is this?" note.
+ * The note is a native <details>, so it works without JavaScript state.
+ */
+function cardHead(key, status, { id, meta, titleTag = "h2" } = {}) {
+  const ex = EXPLAIN[key];
+  const pill = status && status.state !== STATES.none
+    ? h("span", { class: "status", "data-tone": toneOf(status), role: "status" }, status.label ?? STATUS_WORD[status.state])
+    : null;
+  return h("div", {},
+    h("header", { class: "card__head" },
+      h(titleTag, { id }, ex.title),
+      h("span", { class: "card__right" }, pill, meta && h("span", { class: "card__meta" }, meta))),
+    h("details", { class: "explain-wrap" },
+      h("summary", { class: "explain-toggle" }, "What is this?"),
+      h("div", { class: "explain" },
+        h("p", { class: "explain__what" }, ex.what),
+        status && status.reason && h("p", { class: "explain__now" }, h("strong", {}, "Right now: "), status.reason))));
+}
+
+const STATUS_WORD = { good: "On track", watch: "Watch", alert: "Act now", none: "" };
+
 function renderWeekCard(el, { compact = false } = {}) {
   const w = weeklySummary(store.state);
+  const st = { ...weekStatus(w), label: weekStatus(w).state === STATES.good ? "Under last week" : undefined };
+  el.dataset.tone = toneOf(st);
   const stat = (label, value, cls) => h("div", { class: "week__stat" }, h("small", {}, label), h("strong", { class: `num ${cls ?? ""}` }, value));
   const vs = !w.hadLastWeek ? "–" : `${w.change > 0 ? "+" : w.change < 0 ? "\u2212" : ""}${money.short(Math.abs(w.change))}`;
   el.replaceChildren(...[
@@ -403,8 +434,16 @@ function renderAfford() {
 
 function renderBillCompare() {
   const cmp = billComparisons(store.state, ui.ym, new Date());
+  // The card reflects your bills as a whole, not one bill's percentage.
+  const firm = cmp.rows.filter((r) => r.comparable);
+  const prevFirm = sum(firm, (r) => r.previous);
+  const overall = firm.length
+    ? { comparable: true, estimated: false, delta: cmp.firmDelta, pct: prevFirm ? cmp.firmDelta / prevFirm : 0 }
+    : null;
+  $("#billCmpHead").replaceChildren(cardHead("billsCompare", overall ? billStatus(overall) : null, {
+    id: "billCmpTitle", meta: `${monthLabel(ui.ym, "short")} vs ${monthLabel(shiftYM(ui.ym, -1), "short")}`,
+  }));
   const prevShort = monthLabel(shiftYM(ui.ym, -1), "short");
-  $("#billCmpCaption").textContent = `${monthLabel(ui.ym, "short")} vs ${prevShort}`;
   $("#billCmpLead").textContent = voice.billsSummary(cmp, ui.ym, money, todaySeed("bills"));
   if (!cmp.rows.length) {
     $("#billCompare").replaceChildren(emptyState("repeat", "No bills yet", "Add rent, utilities and card payments in Plan to compare them here."));
@@ -435,6 +474,11 @@ function renderBillCompare() {
 
 function renderCalendar() {
   const cal = spendingCalendar(store.state, ui.ym);
+  const s = summarize(store.state, ui.ym);
+  const calStatus = s.budget > 0
+    ? budgetStatus(s.spent / s.budget)
+    : { state: STATES.none, reason: "Set a plan to see this." };
+  $("#calHead").replaceChildren(cardHead("calendar", calStatus, { id: "calTitle" }));
   $("#calLead").textContent = voice.calendarLine(cal, money);
   if (ui.calDay && !ui.calDay.startsWith(ui.ym)) ui.calDay = null;
   $("#calendar").replaceChildren(
@@ -458,12 +502,29 @@ function renderCalendar() {
       : h("p", { class: "card__lead" }, "A no-spend day. Those are the best kind."));
 }
 
+function renderMonthsAndCompare() {
+  const s = summarize(store.state, ui.ym);
+  const ratio = s.budget > 0 ? s.spent / s.budget : null;
+  $("#monthsHead").replaceChildren(cardHead("months", budgetStatus(ratio), {
+    id: undefined, meta: "Flexible spending",
+  }));
+  const rows = compareMonths(store.state, ui.ym);
+  const up = rows.filter((r) => r.previous && r.current > r.previous * 1.1).length;
+  const down = rows.filter((r) => r.previous && r.current < r.previous * 0.9).length;
+  const trend = !rows.length ? { state: STATES.none, reason: "Not enough months to compare yet." }
+    : up > down ? { state: STATES.watch, reason: `${up} categor${up === 1 ? "y is" : "ies are"} up vs last month.` }
+    : { state: STATES.good, reason: `${down} categor${down === 1 ? "y is" : "ies are"} down vs last month.` };
+  $("#momHead").replaceChildren(cardHead("monthOverMonth", trend, { id: undefined, meta: `${monthLabel(ui.ym, "short")} vs ${monthLabel(shiftYM(ui.ym, -1), "short")}` }));
+}
+
 function renderForecast() {
   const f = savingsForecast(store.state);
   const card = $("#forecastCard");
   const stat = (label, value) => h("div", { class: "week__stat" }, h("small", {}, label), h("strong", { class: "num" }, value));
+  const st = forecastStatus(f);
+  card.dataset.tone = toneOf(st);
   card.replaceChildren(
-    h("header", { class: "card__head" }, h("h2", { id: "forecastTitle" }, "Savings forecast"), h("span", { class: "card__meta" }, `By Dec 31, ${f.year}`)),
+    cardHead("forecast", st, { id: "forecastTitle", meta: `By Dec 31, ${f.year}` }),
     h("p", { class: "forecast__label" }, "At your current pace you'll have saved"),
     h("p", { class: `forecast__value num${f.yearEnd < 0 ? " is-negative" : ""}` }, money.short(f.yearEnd)),
     h("p", { class: "card__lead", style: { margin: "6px 0 0" } }, voice.forecastLine(f, money)),
@@ -523,6 +584,7 @@ function renderYear() {
 
 function renderInsights() {
   renderWeekCard($("#weekCard"));
+  renderMonthsAndCompare();
   renderAfford();
   renderBillCompare();
   renderCalendar();
@@ -549,7 +611,7 @@ function renderInsights() {
     : ["–"]));
 
   const prevYM = shiftYM(ui.ym, -1);
-  $("#cmpCaption").textContent = `${monthLabel(ui.ym, "short")} vs ${monthLabel(prevYM, "short")}`;
+
   const rows = compareMonths(state, ui.ym);
   $("#compare").replaceChildren(...(rows.length ? rows.map((r) => {
     let dir = "flat", label = "Same";

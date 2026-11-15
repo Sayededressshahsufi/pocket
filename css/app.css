@@ -1154,6 +1154,75 @@ select.input {
 .ybar__label { font-size: 9.5px; color: var(--text-3); font-weight: 600; }
 
 /* ==========================================================================
+   Status & plain-English notes
+   ========================================================================== */
+.status {
+  --tone: var(--info);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 14%, transparent);
+  white-space: nowrap;
+}
+.status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--tone); }
+.status[data-tone="good"] { --tone: var(--good); }
+.status[data-tone="warn"] { --tone: var(--warn); }
+.status[data-tone="bad"] { --tone: var(--bad); }
+.status[data-tone="info"] { --tone: var(--text-3); }
+
+.explain {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-size: 13px;
+  color: var(--text-2);
+}
+.explain strong { color: var(--text); font-weight: 650; }
+.explain__what { margin: 0; }
+.explain__now { margin: 6px 0 0; }
+.explain--off { display: none; }
+.card__right { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.explain-wrap { margin: -6px 0 12px; }
+.explain-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 4px 0;
+}
+.explain-toggle::-webkit-details-marker { display: none; }
+.explain-toggle::before {
+  content: "?";
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.explain-wrap[open] > .explain-toggle { color: var(--text-2); }
+.explain-wrap[open] > .explain { animation: view-in 0.25s var(--ease); }
+.explain-wrap .explain { margin-top: 6px; margin-bottom: 0; }
+
+/* A card's left edge shows its status, so you can scan the page in one glance. */
+.card[data-tone="good"] { box-shadow: inset 3px 0 0 var(--good); }
+.card[data-tone="warn"] { box-shadow: inset 3px 0 0 var(--warn); }
+.card[data-tone="bad"] { box-shadow: inset 3px 0 0 var(--bad); }
+
+/* ==========================================================================
    Sharing
    ========================================================================== */
 .share__intro { color: var(--text-2); font-size: 13.5px; margin: -4px 0 14px; }

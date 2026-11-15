@@ -183,29 +183,20 @@
         </article>
 
         <article class="card" aria-labelledby="billCmpTitle">
-          <header class="card__head">
-            <h2 id="billCmpTitle">Bills vs last month</h2>
-            <span class="card__meta" id="billCmpCaption"></span>
-          </header>
+          <div id="billCmpHead"></div>
           <p class="card__lead" id="billCmpLead"></p>
           <ul class="bill-cmp" id="billCompare"></ul>
         </article>
 
         <article class="card" aria-labelledby="calTitle">
-          <header class="card__head">
-            <h2 id="calTitle">Spending calendar</h2>
-            <span class="cal-key" aria-hidden="true">Less <i data-l="1"></i><i data-l="2"></i><i data-l="3"></i><i data-l="4"></i> More</span>
-          </header>
+          <div id="calHead"></div>
           <p class="card__lead" id="calLead"></p>
           <div class="cal" id="calendar" role="grid" aria-label="Spending by day"></div>
           <div class="cal-detail" id="calDetail" aria-live="polite"></div>
         </article>
 
-        <article class="card">
-          <header class="card__head">
-            <h2>Last 6 months</h2>
-            <span class="card__meta">Flexible spending</span>
-          </header>
+        <article class="card" id="monthsCard">
+          <div id="monthsHead"></div>
           <svg class="chart" id="barsChart" viewBox="0 0 320 180" role="img" aria-label="Flexible spending for the last six months"></svg>
         </article>
 
@@ -216,11 +207,8 @@
           <div class="stat"><span class="stat__label">Top category</span><strong class="stat__value" id="stTop">–</strong></div>
         </div>
 
-        <article class="card">
-          <header class="card__head">
-            <h2>Month over month</h2>
-            <span class="card__meta" id="cmpCaption"></span>
-          </header>
+        <article class="card" id="momCard">
+          <div id="momHead"></div>
           <ul class="compare" id="compare"></ul>
         </article>
 
