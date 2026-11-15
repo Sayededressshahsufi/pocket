@@ -50,6 +50,9 @@ export function weeklySummary(state, now = new Date()) {
     prevSameDays,
     prevWeek: sum(inRange(state.items, prevStart, addDays(start, -1))),
     change: sum(items) - prevSameDays,
+    // Differences smaller than $25 or 15% of last week's pace are noise, not news.
+    noise: Math.max(2500, Math.round(prevSameDays * 0.15)),
+    steady: Math.abs(sum(items) - prevSameDays) <= Math.max(2500, Math.round(prevSameDays * 0.15)),
     paidIn: sum(inRange(state.paychecks, start, today)),
     count: items.length,
     topCategory: topBy(totalsByCategory(items)),

@@ -64,6 +64,10 @@ export const EXPLAIN = Object.freeze({
     title: "Year in review",
     what: "How each month of the year went, with your best and toughest months.",
   },
+  mood: {
+    title: "How you're doing",
+    what: "The whole app changes color to show how your month is going. Green means you're on track, yellow means keep an eye on something, red means something needs fixing. It looks at your spending pace, savings goal, category limits, bills and bank balance. You can turn the colors off in Plan.",
+  },
   fixedBills: {
     title: "Fixed bills",
     what: "Regular monthly payments like rent and utilities. Pocket sets them aside first, so they never count as spending.",

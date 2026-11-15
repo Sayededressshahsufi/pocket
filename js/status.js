@@ -61,7 +61,9 @@ export function weekStatus(w) {
   if (!w.hadLastWeek && !w.count) return { state: STATES.none, reason: "Nothing to compare yet." };
   if (!w.hadLastWeek) return { state: STATES.good, reason: "Your first week of comparisons." };
   const pct = w.prevSameDays ? w.change / w.prevSameDays : 0;
-  if (w.change <= 0) return { state: STATES.good, reason: "Spending less than last week." };
+  const noise = w.noise ?? Math.max(2500, Math.round(w.prevSameDays * 0.15));
+  if (w.change < 0) return { state: STATES.good, reason: "Spending less than last week." };
+  if (w.change <= noise) return { state: STATES.good, reason: "About the same as last week." };
   if (pct >= 0.25) return { state: STATES.alert, reason: "Well ahead of last week's pace." };
   return { state: STATES.watch, reason: "Slightly ahead of last week." };
 }

@@ -87,6 +87,64 @@
 }
 
 /* ==========================================================================
+   Mood colors
+   The whole app shifts hue with how the month is going (set by JS as
+   <html data-mood="good|watch|alert">). Without it, the purple default stays.
+   Buttons use their own darker pair (--btn-1/2) so white text stays readable.
+   ========================================================================== */
+:root {
+  --btn-1: var(--accent);
+  --btn-2: var(--accent-strong);
+  --glow: rgba(99, 82, 245, 0.7);
+  --hero-glow: rgba(84, 67, 232, 0.65);
+  --marker-ring: rgba(44, 33, 148, 0.5);
+  --wash: linear-gradient(transparent, transparent);
+}
+
+:root[data-mood="good"] {
+  --m: #34d399; --m-2: #a3e635;
+  --btn-1: #059669; --btn-2: #047857;
+  --glow: rgba(5, 150, 105, 0.7); --hero-glow: rgba(5, 122, 85, 0.65); --marker-ring: rgba(6, 78, 59, 0.55);
+  --hero-bg:
+    radial-gradient(120% 120% at 100% 0%, rgba(163, 230, 53, 0.28) 0%, transparent 45%),
+    linear-gradient(150deg, #0e9f6e 0%, #057a55 48%, #064e3b 100%);
+}
+:root[data-mood="watch"] {
+  --m: #fbbf24; --m-2: #fb923c;
+  --btn-1: #b45309; --btn-2: #92400e;
+  --glow: rgba(180, 83, 9, 0.7); --hero-glow: rgba(146, 64, 14, 0.65); --marker-ring: rgba(120, 53, 15, 0.55);
+  --hero-bg:
+    radial-gradient(120% 120% at 100% 0%, rgba(251, 146, 60, 0.3) 0%, transparent 45%),
+    linear-gradient(150deg, #d97706 0%, #b45309 48%, #78350f 100%);
+}
+:root[data-mood="alert"] {
+  --m: #f87171; --m-2: #fb7185;
+  --btn-1: #e11d48; --btn-2: #be123c;
+  --glow: rgba(225, 29, 72, 0.65); --hero-glow: rgba(185, 28, 28, 0.65); --marker-ring: rgba(127, 29, 29, 0.55);
+  --hero-bg:
+    radial-gradient(120% 120% at 100% 0%, rgba(251, 113, 133, 0.3) 0%, transparent 45%),
+    linear-gradient(150deg, #dc2626 0%, #b91c1c 48%, #7f1d1d 100%);
+}
+:root[data-mood] {
+  --accent: var(--m);
+  --accent-strong: var(--btn-2);
+  --accent-soft: color-mix(in srgb, var(--m) 16%, transparent);
+  --accent-2: var(--m-2);
+  --shadow-fab: 0 12px 28px -6px var(--glow);
+  --wash: radial-gradient(90% 40% at 50% 0%, color-mix(in srgb, var(--m) 16%, transparent), transparent 75%);
+}
+
+/* Light theme: darker accents so links and small text keep their contrast. */
+:root[data-theme="light"][data-mood="good"] { --m: #047857; --m-2: #65a30d; }
+:root[data-theme="light"][data-mood="watch"] { --m: #b45309; --m-2: #ea580c; }
+:root[data-theme="light"][data-mood="alert"] { --m: #dc2626; --m-2: #e11d48; }
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"][data-mood="good"] { --m: #047857; --m-2: #65a30d; }
+  :root[data-theme="system"][data-mood="watch"] { --m: #b45309; --m-2: #ea580c; }
+  :root[data-theme="system"][data-mood="alert"] { --m: #dc2626; --m-2: #e11d48; }
+}
+
+/* ==========================================================================
    Base
    ========================================================================== */
 *, *::before, *::after { box-sizing: border-box; }
@@ -100,7 +158,7 @@ html {
 body {
   margin: 0;
   min-height: 100dvh;
-  background: var(--bg);
+  background: var(--wash), var(--bg);
   color: var(--text);
   font: 400 15px/1.45 var(--font);
   -webkit-font-smoothing: antialiased;
@@ -255,7 +313,7 @@ main:focus { outline: none; }
   border-radius: var(--radius-xl);
   color: #fff;
   background: var(--hero-bg);
-  box-shadow: 0 20px 44px -18px rgba(84, 67, 232, 0.65);
+  box-shadow: 0 20px 44px -18px var(--hero-glow);
 }
 .hero::after {
   content: "";
@@ -348,7 +406,7 @@ main:focus { outline: none; }
   margin-left: -1px;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.85);
-  box-shadow: 0 0 0 2px rgba(44, 33, 148, 0.5);
+  box-shadow: 0 0 0 2px var(--marker-ring);
   transition: left 0.7s var(--ease);
 }
 
@@ -757,8 +815,8 @@ select.input {
 .btn--sm .i { width: 15px; height: 15px; }
 .btn--primary {
   color: #fff;
-  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
-  box-shadow: 0 8px 20px -8px rgba(99, 82, 245, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  background: linear-gradient(180deg, var(--btn-1), var(--btn-2));
+  box-shadow: 0 8px 20px -8px var(--glow), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 .btn--soft { color: var(--text); background: var(--surface-2); }
 .btn--soft:hover { background: var(--surface-3); }
@@ -1223,6 +1281,99 @@ select.input {
 .card[data-tone="bad"] { box-shadow: inset 3px 0 0 var(--bad); }
 
 /* ==========================================================================
+   Mood card & celebration
+   ========================================================================== */
+.mood {
+  --tone: var(--info);
+  background: color-mix(in srgb, var(--tone) 7%, var(--surface));
+  border-color: color-mix(in srgb, var(--tone) 24%, transparent);
+}
+.mood[data-tone="good"] { --tone: var(--good); }
+.mood[data-tone="warn"] { --tone: var(--warn); }
+.mood[data-tone="bad"] { --tone: var(--bad); }
+.mood .card__head h2 { font-size: 19px; letter-spacing: -0.02em; }
+
+.mood__sub { color: var(--text-2); font-size: 13.5px; margin: 0 0 14px; }
+.mood__celebrate { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.mood__celebrate .mood__sub { margin: 0; }
+.mood__trophy {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(145deg, var(--btn-1), var(--btn-2));
+  box-shadow: 0 10px 24px -10px var(--glow), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.mood__trophy .i { width: 26px; height: 26px; }
+.mood__trophy.is-pop { animation: pop 0.6s var(--ease); }
+@keyframes pop {
+  0% { transform: scale(0.6) rotate(-12deg); }
+  60% { transform: scale(1.14) rotate(4deg); }
+  100% { transform: none; }
+}
+
+.mood__label {
+  margin: 16px 0 8px;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.mood__label:first-of-type { margin-top: 0; }
+.mood__list { display: grid; gap: 10px; }
+.mood__item {
+  --item: var(--info);
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.mood__item[data-tone="good"] { --item: var(--good); }
+.mood__item[data-tone="warn"] { --item: var(--warn); }
+.mood__item[data-tone="bad"] { --item: var(--bad); }
+.mood__icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 10px;
+  color: var(--item);
+  background: color-mix(in srgb, var(--item) 16%, transparent);
+}
+.mood__icon .i { width: 17px; height: 17px; }
+.mood__body { min-width: 0; }
+.mood__title { font-weight: 650; font-size: 14px; }
+.mood__text { margin-top: 1px; color: var(--text-2); font-size: 13px; }
+.mood__fix { margin-top: 6px; font-size: 13px; }
+.mood__fix strong { color: var(--item); }
+.mood__action {
+  display: inline-flex;
+  margin-top: 8px;
+  padding: 0;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 650;
+}
+.mood__action:hover { text-decoration: underline; }
+.mood__more { margin: 10px 0 0; color: var(--text-3); font-size: 12.5px; }
+
+.confetti {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 90;
+  pointer-events: none;
+}
+
+/* ==========================================================================
    Sharing
    ========================================================================== */
 .share__intro { color: var(--text-2); font-size: 13.5px; margin: -4px 0 14px; }
@@ -1346,7 +1497,7 @@ select.input {
   margin: -22px auto 0;
   border-radius: 19px;
   color: #fff;
-  background: linear-gradient(145deg, var(--accent), var(--accent-strong));
+  background: linear-gradient(145deg, var(--btn-1), var(--btn-2));
   box-shadow: var(--shadow-fab), inset 0 1px 0 rgba(255, 255, 255, 0.2);
   transition: transform 0.15s var(--ease);
 }

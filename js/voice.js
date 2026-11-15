@@ -9,7 +9,7 @@ import { getCategory } from "./categories.js";
 import { monthLabel, ordinal, parseISO, shiftYM } from "./dates.js";
 
 /** Small stable hash -> index. */
-function pick(seed, options) {
+export function pick(seed, options) {
   let h = 2166136261;
   for (const ch of String(seed)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
   return options[Math.abs(h) % options.length];
@@ -32,7 +32,7 @@ export function weeklyHeadline(w, money, seed) {
       : pick(seed, ["Nothing spent this week. Impressive restraint.", "A no-spend week so far. Your savings approve.", "Zero spent this week. Who even are you?"]);
   }
   if (!w.hadLastWeek) return pick(seed, [`${money.short(w.spent)} so far this week.`, `You're at ${money.short(w.spent)} this week.`]);
-  if (Math.abs(w.change) < 500) {
+  if (w.steady) {
     return pick(seed, ["Right in line with last week. Consistent.", "Same pace as last week. Steady wins.", "Matching last week almost to the dollar."]);
   }
   if (w.change < 0) {

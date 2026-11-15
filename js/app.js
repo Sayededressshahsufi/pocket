@@ -22,6 +22,9 @@ import {
   weeklySummary, yearView,
 } from "./insights.js";
 import * as voice from "./voice.js";
+import { computeMood } from "./mood.js";
+import { createPrefs } from "./prefs.js";
+import { confetti } from "./celebrate.js";
 import { EXPLAIN } from "./explain.js";
 import {
   balanceStatus, billStatus, budgetStatus, forecastStatus, savingsStatus, STATES, toneOf, weekStatus, limitStatus,
@@ -48,9 +51,10 @@ const sync = createSync(store, {
 
 const ui = {
   view: "home", ym: currentYM(), query: "", filter: null,
-  year: new Date().getFullYear(), calDay: null, afford: null,
+  year: new Date().getFullYear(), calDay: null, afford: null, mood: { state: "none", problems: [], wins: [] },
 };
 const todaySeed = (topic) => `${toISO(new Date())}:${topic}`;
+const prefs = createPrefs(); // per-device: mood colors and celebrations
 let money = createMoney(store.state.settings.currency);
 let lastCategory = "groceries";
 
@@ -190,6 +194,88 @@ function renderBalanceCard(now) {
   ].filter(Boolean)); // replaceChildren would print `false` as text
 }
 
+// ---------------------------------------------------------------------------
+// Mood: the whole app's color, the "how you're doing" card, and celebrations
+// ---------------------------------------------------------------------------
+const MOOD_LABEL = { good: "Doing great", watch: "Keep an eye", alert: "Needs action" };
+const MOOD_LIST_LABEL = { good: "One quick thing", watch: "What to watch", alert: "What's going wrong" };
+
+function applyMood(mood) {
+  const root = document.documentElement;
+  if (prefs.get().mood && mood.state !== STATES.none) root.dataset.mood = mood.state;
+  else delete root.dataset.mood;
+  const remembered = mood.state === STATES.none ? "" : mood.state;
+  if (prefs.get().lastMood !== remembered) prefs.set({ lastMood: remembered });
+}
+
+function moodItem(kind, item) {
+  const win = kind === "win";
+  const tone = win ? "good" : item.state === STATES.alert ? "bad" : "warn";
+  const iconName = win ? "check" : item.state === STATES.alert ? "alert" : "trend-up";
+  const action = item.action && (item.action.href
+    ? h("a", { class: "mood__action", href: item.action.href }, item.action.label)
+    : h("button", { class: "mood__action", type: "button", onclick: openBalance }, item.action.label));
+  return h("li", { class: "mood__item", "data-tone": tone },
+    h("span", { class: "mood__icon" }, icon(iconName)),
+    h("div", { class: "mood__body" },
+      h("p", { class: "mood__title" }, item.title),
+      item.text && h("p", { class: "mood__text" }, item.text),
+      item.fix && h("p", { class: "mood__fix" }, h("strong", {}, "Try this: "), item.fix),
+      action));
+}
+
+function celebrateNow(trophy) {
+  haptic([12, 40, 12, 40, 20]);
+  if (trophy) {
+    trophy.classList.remove("is-pop");
+    void trophy.offsetWidth; // restart the pop animation
+    trophy.classList.add("is-pop");
+  }
+  if (!confetti()) toast("Nice work. Keep it going.");
+}
+
+function renderMoodCard(mood, visible) {
+  const card = $("#moodCard");
+  card.hidden = !visible;
+  if (!visible) return;
+  const good = mood.state === STATES.good;
+  card.dataset.tone = toneOf({ state: mood.state });
+  const status = { state: mood.state, label: MOOD_LABEL[mood.state], reason: mood.reason };
+  const problems = mood.problems.slice(0, 4);
+  const wins = mood.wins.slice(0, good ? 4 : 2);
+  const parts = [cardHead("mood", status, { id: "moodTitle", title: mood.headline, meta: "This month" })];
+
+  if (good) {
+    const trophy = h("button", { class: "mood__trophy", type: "button", "aria-label": "Celebrate" }, icon("trophy"));
+    trophy.addEventListener("click", () => celebrateNow(trophy));
+    parts.push(h("div", { class: "mood__celebrate" }, trophy, h("p", { class: "mood__sub" }, mood.subline)));
+  } else {
+    parts.push(h("p", { class: "mood__sub" }, mood.subline));
+  }
+  if (problems.length) {
+    parts.push(h("p", { class: "mood__label" }, MOOD_LIST_LABEL[mood.state]),
+      h("ul", { class: "mood__list" }, problems.map((p) => moodItem("problem", p))));
+    if (mood.problems.length > problems.length) {
+      parts.push(h("p", { class: "mood__more" }, `+${mood.problems.length - problems.length} more in Insights`));
+    }
+  }
+  if (wins.length) {
+    parts.push(h("p", { class: "mood__label" }, good ? "What's going well" : "Still going well"),
+      h("ul", { class: "mood__list" }, wins.map((w) => moodItem("win", w))));
+  }
+  card.replaceChildren(...parts);
+}
+
+/** Confetti once per day, the first time Home shows a great month. */
+function maybeCelebrate() {
+  const p = prefs.get();
+  const today = toISO(new Date());
+  if (!ui.mood.celebrate || !p.celebrate || p.celebratedOn === today) return;
+  if (ui.view !== "home" || ui.ym !== currentYM() || document.hidden) return;
+  prefs.set({ celebratedOn: today });
+  setTimeout(() => { if (!document.hidden) celebrateNow($(".mood__trophy")); }, 500);
+}
+
 const INSIGHT_ICONS = { good: "check", warn: "trend-up", bad: "alert", info: "sparkle" };
 function insightCard(ins) {
   return h(ins.action ? "a" : "div", {
@@ -269,8 +355,12 @@ function renderHome() {
   $("#weekCardHome").hidden = ui.ym !== currentYM(now);
   if (!$("#weekCardHome").hidden) renderWeekCard($("#weekCardHome"), { compact: true });
 
-  // Coaching
-  $("#insights").replaceChildren(...buildInsights(state, ui.ym, now, money).slice(0, 2).map(insightCard));
+  // How you're doing: the mood card replaces the generic tips whenever it has problems to point at.
+  const showMood = ui.ym === currentYM(now) && ui.mood.state !== STATES.none;
+  renderMoodCard(ui.mood, showMood);
+  const tips = !showMood || ui.mood.state === STATES.good;
+  $("#insights").replaceChildren(...(tips ? buildInsights(state, ui.ym, now, money).slice(0, 2).map(insightCard) : []));
+  maybeCelebrate();
 
   // Savings
   const { goal } = state.settings;
@@ -382,14 +472,14 @@ const shortDate = (iso) => parseISO(iso).toLocaleDateString(undefined, { month: 
  * A card's header row: title, status pill, and a "What is this?" note.
  * The note is a native <details>, so it works without JavaScript state.
  */
-function cardHead(key, status, { id, meta, titleTag = "h2" } = {}) {
+function cardHead(key, status, { id, meta, title, titleTag = "h2" } = {}) {
   const ex = EXPLAIN[key];
   const pill = status && status.state !== STATES.none
     ? h("span", { class: "status", "data-tone": toneOf(status), role: "status" }, status.label ?? STATUS_WORD[status.state])
     : null;
   return h("div", {},
     h("header", { class: "card__head" },
-      h(titleTag, { id }, ex.title),
+      h(titleTag, { id }, title ?? ex.title),
       h("span", { class: "card__right" }, pill, meta && h("span", { class: "card__meta" }, meta))),
     h("details", { class: "explain-wrap" },
       h("summary", { class: "explain-toggle" }, "What is this?"),
@@ -412,7 +502,7 @@ function renderWeekCard(el, { compact = false } = {}) {
     !compact && h("p", { class: "week__detail" }, voice.weeklyDetail(w, money)),
     h("div", { class: "week__stats" },
       stat("Spent", money.short(w.spent)),
-      stat("vs last week", vs, w.change > 500 ? "is-up" : w.change < -500 ? "is-down" : ""),
+      stat("vs last week", vs, w.steady ? "" : w.change > 0 ? "is-up" : "is-down"),
       compact
         ? stat("Paid in", money.short(w.paidIn))
         : stat("Top", w.topCategory ? getCategory(w.topCategory.id).name : "–")),
@@ -893,6 +983,8 @@ function renderPlan() {
     : [emptyState("repeat", "No fixed bills", "Add rent, phone or subscriptions so your budget is realistic.")]));
 
   $("#currency").value = settings.currency;
+  $("#moodToggle").checked = prefs.get().mood;
+  $("#celebrateToggle").checked = prefs.get().celebrate;
   for (const btn of $$("[data-theme-option]")) {
     btn.setAttribute("aria-checked", String(btn.dataset.themeOption === settings.theme));
   }
@@ -1438,6 +1530,8 @@ function render() {
   for (const el of $$("[data-currency-symbol]")) {
     if (!el.closest("#onboarding")) el.textContent = money.symbol;
   }
+  ui.mood = computeMood(store.state, new Date(), money, { name: sync.info.user?.name ?? "" });
+  applyMood(ui.mood);
   VIEWS[ui.view].render();
 }
 
@@ -1637,6 +1731,15 @@ function wireEvents() {
   $("#currency").addEventListener("change", (e) => {
     store.update((s) => { s.settings.currency = e.target.value; });
     toast(`Currency set to ${e.target.value}`);
+  });
+  $("#moodToggle").addEventListener("change", (e) => {
+    prefs.set({ mood: e.target.checked });
+    render();
+    toast(e.target.checked ? "Mood colors on" : "Mood colors off");
+  });
+  $("#celebrateToggle").addEventListener("change", (e) => {
+    prefs.set({ celebrate: e.target.checked });
+    toast(e.target.checked ? "Celebrations on" : "Celebrations off");
   });
   $("#themeSeg").addEventListener("click", (e) => {
     const opt = e.target.closest("[data-theme-option]")?.dataset.themeOption;

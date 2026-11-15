@@ -79,8 +79,9 @@ describe("balance and week", () => {
 
   it("week compares with last week", () => {
     assert.equal(weekStatus({ hadLastWeek: true, change: -500, prevSameDays: 4000, count: 3 }).state, STATES.good);
-    assert.equal(weekStatus({ hadLastWeek: true, change: 800, prevSameDays: 4000, count: 3 }).state, STATES.watch);
-    assert.equal(weekStatus({ hadLastWeek: true, change: 3000, prevSameDays: 4000, count: 3 }).state, STATES.alert);
+    assert.equal(weekStatus({ hadLastWeek: true, change: 1800, prevSameDays: 4000, count: 3 }).state, STATES.good); // noise
+    assert.equal(weekStatus({ hadLastWeek: true, change: 8000, prevSameDays: 40000, count: 3 }).state, STATES.watch);
+    assert.equal(weekStatus({ hadLastWeek: true, change: 12000, prevSameDays: 40000, count: 3 }).state, STATES.alert);
     assert.equal(weekStatus({ hadLastWeek: false, change: 0, prevSameDays: 0, count: 0 }).state, STATES.none);
   });
 
